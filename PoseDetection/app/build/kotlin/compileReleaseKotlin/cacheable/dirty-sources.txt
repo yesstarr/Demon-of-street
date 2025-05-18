@@ -1,1 +1,0 @@
-/Users/test/Downloads/Mediapipe-Pose-Implementation-Android-main/PoseDetection/app/src/main/java/com/ooplab/exercises_fitfuel/MainActivity.kt
