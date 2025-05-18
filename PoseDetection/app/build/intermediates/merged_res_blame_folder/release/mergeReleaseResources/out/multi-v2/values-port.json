@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.ooplab.exercises_fitfuel.app-mergeReleaseResources-67:/values-port/values-port.xml",
+            "map": [
+                {
+                    "source": "/Users/test/.gradle/caches/8.14/transforms/fb12298c4e95993b89db2bb4f9bac945/transformed/appcompat-1.6.1/res/values-port/values-port.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "55",
+                        "endOffsets": "106"
+                    }
+                }
+            ]
+        }
+    ]
+}
