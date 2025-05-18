@@ -1,13 +1,17 @@
 package com.ooplab.exercises_fitfuel
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.*
 import android.media.Image
+import android.net.Uri // Uri 임포트 추가
 import android.os.Bundle
 import android.util.Log
+import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.VideoView // VideoView 임포트 추가
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.OptIn
@@ -34,16 +38,28 @@ class MainActivity : AppCompatActivity() {
     private lateinit var previewView: PreviewView
     private lateinit var poseLandmarker: PoseLandmarker
     private lateinit var scoreTextView: TextView
+    private lateinit var videoView: VideoView //비디오뷰 변수
     private var cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d("MainActivity", "onCreate called")
         setContentView(R.layout.activity_main)
         setupEdgeToEdge()
         initCameraExecutor()
 
+        val backToMenuButton: Button = findViewById(R.id.backToMenuButton)
+        backToMenuButton.setOnClickListener {
+            val intent = Intent(this, MainScreenActivity::class.java)
+            startActivity(intent)
+            finish()  // 현재 화면 닫기
+        }
+
         previewView = findViewById(R.id.previewCam)
         scoreTextView = findViewById(R.id.score_text)
+        videoView = findViewById(R.id.videoView) // VideoView 초기화
+
+        setupVideoPlayback() // 동영상 재생 설정 함수 호출
 
         requestCameraPermission()
     }
@@ -106,14 +122,41 @@ class MainActivity : AppCompatActivity() {
         // 임시 점수 계산: x좌표 평균
         return landmarks.map { it.x() }.average().toFloat() * 100
     }
+    private fun setupVideoPlayback() {
+        // res/raw 폴더에 있는 동영상 파일의 URI를 가져옵니다.
+        val videoUri = Uri.parse("android.resource://" + packageName + "/" + R.raw.chickenbanana) // your_video_name.mp4 대신 실제 파일명 사용
+
+        videoView.setVideoURI(videoUri) // VideoView에 동영상 URI 설정
+
+        videoView.setZOrderOnTop(true) // VideoView가 다른 뷰 위에 그려지도록 강제 시도
+        videoView.setOnPreparedListener { mediaPlayer ->
+            mediaPlayer.isLooping = true // 동영상 무한 반복 재생 설정
+            videoView.start() // 동영상 재생 시작
+            Log.d("VideoView", "Video started playing and set to loop.")
+        }
+        videoView.setOnErrorListener { mediaPlayer, what, extra ->
+            Log.e("VideoView", "Video playback error: what=$what, extra=$extra")
+            Toast.makeText(this, "동영상 재생 오류 발생", Toast.LENGTH_SHORT).show()
+            true // true를 반환하여 오류를 처리했음을 나타냅니다.
+        }
+    }
 
     private val cameraPermissionLauncher: ActivityResultLauncher<String> =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            Log.d("CameraPermission", "Camera permission request result: $granted")
             if (granted) setupCamera() else Toast.makeText(this, "Camera permission required", Toast.LENGTH_SHORT).show()
         }
 
     private fun requestCameraPermission() {
-        if (hasCameraPermission()) setupCamera() else cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        Log.d("CameraPermission", "Checking camera permission")
+        if (hasCameraPermission()) {
+            Log.d("CameraPermission", "Camera permission granted, setting up camera")
+            setupCamera()
+        }
+        else {
+            Log.d("CameraPermission", "Camera permission not granted, requesting permission")
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
     }
 
     private fun hasCameraPermission(): Boolean {
@@ -132,6 +175,8 @@ class MainActivity : AppCompatActivity() {
             try {
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalyzer)
+                Log.d("CameraSetup", "Camera successfully bound to lifecycle")
+
             } catch (e: Exception) {
                 Log.e("CameraSetup", "Error binding camera use cases", e)
             }
@@ -179,5 +224,10 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         cameraExecutor.shutdown()
         poseLandmarker.close()
+        if (videoView.isPlaying) {
+            videoView.stopPlayback()
+        }
     }
+
+
 }

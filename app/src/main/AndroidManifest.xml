@@ -32,6 +32,10 @@
 
         <activity android:name="com.ooplab.exercises_fitfuel.MyPageActivity" />
 
+        <activity android:name="com.ooplab.exercises_fitfuel.MainScreenActivity" />
+
+        <activity android:name="com.ooplab.exercises_fitfuel.MainActivity" />
+
 
     </application>
 
