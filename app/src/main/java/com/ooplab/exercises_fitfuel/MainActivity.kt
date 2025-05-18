@@ -1,11 +1,13 @@
 package com.ooplab.exercises_fitfuel
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.*
 import android.media.Image
 import android.os.Bundle
 import android.util.Log
+import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
@@ -38,9 +40,17 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d("MainActivity", "onCreate called")
         setContentView(R.layout.activity_main)
         setupEdgeToEdge()
         initCameraExecutor()
+
+        val backToMenuButton: Button = findViewById(R.id.backToMenuButton)
+        backToMenuButton.setOnClickListener {
+            val intent = Intent(this, MainScreenActivity::class.java)
+            startActivity(intent)
+            finish()  // 현재 화면 닫기
+        }
 
         previewView = findViewById(R.id.previewCam)
         scoreTextView = findViewById(R.id.score_text)
@@ -109,11 +119,20 @@ class MainActivity : AppCompatActivity() {
 
     private val cameraPermissionLauncher: ActivityResultLauncher<String> =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            Log.d("CameraPermission", "Camera permission request result: $granted")
             if (granted) setupCamera() else Toast.makeText(this, "Camera permission required", Toast.LENGTH_SHORT).show()
         }
 
     private fun requestCameraPermission() {
-        if (hasCameraPermission()) setupCamera() else cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        Log.d("CameraPermission", "Checking camera permission")
+        if (hasCameraPermission()) {
+            Log.d("CameraPermission", "Camera permission granted, setting up camera")
+            setupCamera()
+        }
+        else {
+            Log.d("CameraPermission", "Camera permission not granted, requesting permission")
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
     }
 
     private fun hasCameraPermission(): Boolean {
@@ -132,6 +151,8 @@ class MainActivity : AppCompatActivity() {
             try {
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalyzer)
+                Log.d("CameraSetup", "Camera successfully bound to lifecycle")
+
             } catch (e: Exception) {
                 Log.e("CameraSetup", "Error binding camera use cases", e)
             }
