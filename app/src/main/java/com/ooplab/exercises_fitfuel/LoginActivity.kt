@@ -27,7 +27,7 @@ class LoginActivity : AppCompatActivity() {
             repository.login(email, password) { success, result ->
                 if (success) {
                     showToast("로그인 성공! 토큰: $result")
-                    startActivity(Intent(this, MyPageActivity::class.java))
+                    startActivity(Intent(this, MainScreenActivity::class.java))
                 } else {
                     showToast("로그인 실패: $result")
                 }
