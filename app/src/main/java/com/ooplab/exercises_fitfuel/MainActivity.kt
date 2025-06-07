@@ -27,7 +27,6 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.mediapipe.framework.image.BitmapImageBuilder
-
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
@@ -44,7 +43,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var previewView: PreviewView
     private lateinit var poseLandmarker: PoseLandmarker
     private lateinit var scoreTextView: TextView
-
     private lateinit var countdownText: TextView
     private lateinit var yuvToRgbConverter: YuvToRgbConverter
 
@@ -56,14 +54,11 @@ class MainActivity : AppCompatActivity() {
     private val recentFrames = mutableListOf<List<Float>>()
     private val maxFrames = 30
 
-<<<<<<< Updated upstream
-=======
     private var videoDurationMs: Int = 0
     private val allFrameScores = mutableListOf<Float>()
     private var badCount = 0
     private var goodCount = 0
     private var perfectCount = 0
->>>>>>> Stashed changes
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -91,7 +86,6 @@ class MainActivity : AppCompatActivity() {
             videoReady = true
             videoView.requestFocus()
         }
-
     }
 
     private fun setupEdgeToEdge() {
@@ -116,7 +110,6 @@ class MainActivity : AppCompatActivity() {
             .setBaseOptions(baseOptions)
             .setRunningMode(RunningMode.LIVE_STREAM)
             .setResultListener { result, _ ->
-
                 if (!poseTrackingEnabled) return@setResultListener
 
                 result.landmarks().firstOrNull()?.let { landmarkList ->
@@ -135,11 +128,6 @@ class MainActivity : AppCompatActivity() {
                                 scoreTextView.text = "GOOD"
                                 scoreTextView.setTextColor(Color.parseColor("#FFA500"))
                             }
-<<<<<<< Updated upstream
-
-
-=======
->>>>>>> Stashed changes
                             else -> {
                                 perfectCount++
                                 scoreTextView.text = "PERFECT"
@@ -152,7 +140,6 @@ class MainActivity : AppCompatActivity() {
 
         poseLandmarker = PoseLandmarker.createFromOptions(this, options)
     }
-
 
     private fun calculateScore(landmarks: List<NormalizedLandmark>): Float {
         val currentPose = landmarks.flatMap { listOf(it.x(), it.y(), it.z()) }
@@ -210,12 +197,10 @@ class MainActivity : AppCompatActivity() {
         }
         if (frameData.isNotEmpty()) frames.add(frameData)
         return frames
-
     }
 
     private val cameraPermissionLauncher: ActivityResultLauncher<String> =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-
             if (granted) {
                 setupCamera()
                 startCountdown()
@@ -235,22 +220,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun hasCameraPermission(): Boolean {
-<<<<<<< Updated upstream
-        return ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.CAMERA
-        ) == PackageManager.PERMISSION_GRANTED
-
-=======
         return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
->>>>>>> Stashed changes
     }
 
     private fun setupCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
-
             val preview = Preview.Builder().build().apply {
                 setSurfaceProvider(previewView.surfaceProvider)
             }
@@ -259,7 +235,6 @@ class MainActivity : AppCompatActivity() {
                 .build().apply {
                     setAnalyzer(cameraExecutor, ::analyzeImage)
                 }
-
             try {
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalyzer)
@@ -288,7 +263,6 @@ class MainActivity : AppCompatActivity() {
         } ?: Log.w("YUV", "Image is null")
 
         imageProxy.close()
-
     }
 
     override fun onDestroy() {
@@ -297,10 +271,6 @@ class MainActivity : AppCompatActivity() {
         poseLandmarker.close()
     }
 
-<<<<<<< Updated upstream
-
-    @Suppress("DEPRECATION")
-=======
     private fun startCountdown() {
         countdownText.visibility = TextView.VISIBLE
         val countdownValues = listOf("3", "2", "1", "Start!")
@@ -341,7 +311,6 @@ class MainActivity : AppCompatActivity() {
         handler.post(runnable)
     }
 
->>>>>>> Stashed changes
     class YuvToRgbConverter(context: Context) {
         private val rs = RenderScript.create(context)
 
@@ -378,5 +347,4 @@ class MainActivity : AppCompatActivity() {
             return nv21
         }
     }
-
 }
