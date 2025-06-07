@@ -1,39 +1,122 @@
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
-    android:padding="24dp"
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="#FFFDD0">
 
-    <EditText
-        android:id="@+id/etNickname"
-        android:hint="닉네임 (중복 불가)"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+    <!-- 로고 이미지 -->
+    <ImageView
+        android:id="@+id/logoImage"
+        android:layout_width="284dp"
+        android:layout_height="286dp"
+        android:layout_marginTop="0dp"
+        android:layout_marginStart="53dp"
+        android:src="@drawable/logo"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
 
+    <!-- 앱 타이틀 -->
+    <TextView
+        android:id="@+id/appTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Perfect Challenge"
+        android:textColor="#FF7F98"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toBottomOf="@id/logoImage"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp" />
+
+    <!-- 부제목 -->
+    <TextView
+        android:id="@+id/subTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Enjoy Your Dance!"
+        android:textColor="#FF486C"
+        android:textSize="12sp"
+        app:layout_constraintTop_toBottomOf="@id/appTitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="4dp" />
+
+    <!-- 이름 입력 -->
     <EditText
         android:id="@+id/etName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
         android:hint="이름"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:backgroundTint="#FF7F98"
+        android:textColorHint="#FF7F98"
+        app:layout_constraintTop_toBottomOf="@id/subTitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="24dp"
+        android:layout_marginStart="38dp"
+        android:layout_marginEnd="38dp" />
 
+    <!-- 닉네임 입력 -->
+    <EditText
+        android:id="@+id/etNickname"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:hint="닉네임"
+        android:backgroundTint="#FF7F98"
+        android:textColorHint="#FF7F98"
+        app:layout_constraintTop_toBottomOf="@id/etName"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="12dp"
+        android:layout_marginStart="38dp"
+        android:layout_marginEnd="38dp" />
+
+    <!-- 이메일 입력 -->
     <EditText
         android:id="@+id/etEmail"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
         android:hint="이메일"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:backgroundTint="#FF7F98"
+        android:textColorHint="#FF7F98"
+        app:layout_constraintTop_toBottomOf="@id/etNickname"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="12dp"
+        android:layout_marginStart="38dp"
+        android:layout_marginEnd="38dp" />
 
+    <!-- 비밀번호 입력 -->
     <EditText
         android:id="@+id/etPassword"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
         android:hint="비밀번호 (6자리 이상)"
         android:inputType="textPassword"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:backgroundTint="#FF7F98"
+        android:textColorHint="#FF7F98"
+        app:layout_constraintTop_toBottomOf="@id/etEmail"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="12dp"
+        android:layout_marginStart="38dp"
+        android:layout_marginEnd="38dp" />
 
+    <!-- 회원가입 버튼 -->
     <Button
         android:id="@+id/btnSignup"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
         android:text="회원가입 완료"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#FF7F98"
+        app:layout_constraintTop_toBottomOf="@id/etPassword"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="32dp"
+        android:layout_marginStart="38dp"
+        android:layout_marginEnd="38dp" />
 
-</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

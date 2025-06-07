@@ -8,6 +8,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.bumptech.glide.Glide
 import android.widget.ImageView
+import kotlin.also
 
 // 원본 영상을 ExoPlayer로 재생하는 화면
 class VideoPlayerActivity : AppCompatActivity() {

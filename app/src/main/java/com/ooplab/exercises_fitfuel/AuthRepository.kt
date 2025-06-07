@@ -94,9 +94,9 @@ class AuthRepository {
 
     //원본 관절 좌표 csv 파일 가져오기
     fun loadCsvFromFirebaseStream(
-    challengeId: String,
-    onLoaded: (List<List<Float>>) -> Unit,
-    onError: (Exception) -> Unit
+        challengeId: String,
+        onLoaded: (List<List<Float>>) -> Unit,
+        onError: (Exception) -> Unit
     ) {
         val fileRef = Firebase.storage.reference.child("motion_data/$challengeId.csv")
 

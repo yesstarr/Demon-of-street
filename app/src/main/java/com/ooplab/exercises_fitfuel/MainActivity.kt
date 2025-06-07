@@ -104,6 +104,10 @@ class MainActivity : AppCompatActivity() {
                 finish() //실패하면 이전화면으로 돌아가기
             }
         )
+        val backButton = findViewById<Button>(R.id.backToMenuButton)
+        backButton.setOnClickListener {
+            finish()
+        }
 
         previewView = findViewById(R.id.previewCam)
         scoreTextView = findViewById(R.id.score_text)
