@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "785924794608",
+    "project_id": "demon-of-street",
+    "storage_bucket": "demon-of-street.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:785924794608:android:9571cdcd89617c6355ba35",
+        "android_client_info": {
+          "package_name": "com.android.example.mediapipe"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCV2JACSPDJdcUY6LUEbhhwzTlAG4Kqw20"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:785924794608:android:6182d28cba6d0b4555ba35",
+        "android_client_info": {
+          "package_name": "com.example.logintest01"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCV2JACSPDJdcUY6LUEbhhwzTlAG4Kqw20"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:785924794608:android:8549804a4947c92355ba35",
+        "android_client_info": {
+          "package_name": "com.ooplab.exercises_fitfuel"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCV2JACSPDJdcUY6LUEbhhwzTlAG4Kqw20"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
