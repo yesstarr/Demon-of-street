@@ -4,11 +4,9 @@ package com.ooplab.exercises_fitfuel
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.*
 
 import android.media.Image
 import android.renderscript.*
-import androidx.camera.core.ExperimentalGetImage
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
@@ -31,19 +29,18 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.mediapipe.framework.image.BitmapImageBuilder
-import com.google.mediapipe.framework.image.MPImage
+
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
-import java.io.BufferedReader
-import java.io.ByteArrayOutputStream
-import java.io.InputStreamReader
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.math.sqrt
 import android.annotation.SuppressLint
-import androidx.annotation.OptIn
+
+import java.io.BufferedReader
+import java.io.InputStreamReader
 
 
 class MainActivity : AppCompatActivity() {
@@ -52,7 +49,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var previewView: PreviewView
     private lateinit var poseLandmarker: PoseLandmarker
     private lateinit var scoreTextView: TextView
-
     private lateinit var countdownText: TextView
     private lateinit var yuvToRgbConverter: YuvToRgbConverter
 
@@ -65,6 +61,11 @@ class MainActivity : AppCompatActivity() {
     private val maxFrames = 30
     private var frameIndex = 0
 
+    private var videoDurationMs: Int = 0
+    private val allFrameScores = mutableListOf<Float>()
+    private var badCount = 0
+    private var goodCount = 0
+    private var perfectCount = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -82,6 +83,7 @@ class MainActivity : AppCompatActivity() {
 
         // 챌린지 ID 받아오기
         val challengeId = intent.getStringExtra("challengeId") ?: "chicken_banana"
+        val videoUrl = intent.getStringExtra("videoUrl")
         Log.d("CSV", "넘어온 challengeId = $challengeId")
         Log.d("MainActivity", "loadCsvFromFirebaseStream 호출 시작")
 
@@ -112,15 +114,27 @@ class MainActivity : AppCompatActivity() {
 
         requestCameraPermission()
 
-        val uri = Uri.parse("android.resource://${packageName}/raw/chickenbanana")
-        videoView.setVideoURI(uri)
-        val mediaController = MediaController(this)
-        mediaController.setAnchorView(videoView)
-        videoView.setMediaController(mediaController)
-        videoView.setOnPreparedListener {
-            it.isLooping = true
-            videoReady = true
-            videoView.requestFocus()
+        videoUrl?.let {
+            Log.d("VideoDebug", "영상 URL: $it")  // URL 정상 여부 확인
+            videoView.setVideoURI(Uri.parse(it))
+            Log.d("VideoDebug", "setVideoURI 호출 완료")  // 👉 추가 로그
+
+            videoView.setOnPreparedListener { mp ->
+                mp.isLooping = true
+                videoDurationMs = mp.duration
+                videoReady = true
+                Log.d("VideoDebug", "영상 준비 완료, 길이 = $videoDurationMs ms")
+                videoView.requestFocus()
+            }
+
+            videoView.setOnErrorListener { mp, what, extra ->
+                Log.e("VideoDebug", "영상 재생 중 오류 발생: what=$what, extra=$extra")
+                false  // 시스템 기본 오류 처리 진행
+            }
+
+            val mediaController = MediaController(this)
+            mediaController.setAnchorView(videoView)
+            videoView.setMediaController(mediaController)
         }
 
 
@@ -235,6 +249,7 @@ class MainActivity : AppCompatActivity() {
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted && referenceFrames.isNotEmpty()) {
                 setupCamera()
+
                 startCountdown()
             } else {
                 Toast.makeText(this, "Camera permission required", Toast.LENGTH_SHORT).show()
@@ -250,6 +265,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startCountdown() {
+        Log.d("Countdown", "카운트다운 시작")
         countdownText.visibility = TextView.VISIBLE
         val countdownValues = listOf("3", "2", "1", "Start!")
         var index = 0
@@ -263,10 +279,36 @@ class MainActivity : AppCompatActivity() {
                     handler.postDelayed(this, 1000)
                 } else {
                     countdownText.visibility = TextView.GONE
+                    Log.d("Countdown", "카운트다운 종료 → 영상 재생 및 포즈 트래킹 시작")
 
                     handler.postDelayed({
                         poseTrackingEnabled = true
-                        videoView.start()
+                        if (videoReady) {
+                            videoView.start()
+                            Log.d("Countdown", "영상 재생 시작")
+
+                            handler.postDelayed({
+                                poseTrackingEnabled = false
+                                videoView.pause()
+                                Log.d("Countdown", "영상 일시정지 → 결과 화면으로 이동")
+
+                                val averageScore = allFrameScores.average().toFloat()
+                                val total = badCount + goodCount + perfectCount
+                                val weightedScore = if (total > 0) {
+                                    (badCount * 1 + goodCount * 2 + perfectCount * 3).toDouble() / total
+                                } else 0.0
+
+                                val intent = Intent(this@MainActivity, ResultActivity::class.java).apply {
+                                    putExtra("averageScore", averageScore)
+                                    putExtra("weightedScore", weightedScore)
+                                }
+                                startActivity(intent)
+                                finish()
+                            }, videoDurationMs.toLong())
+
+                        } else {
+                            Log.e("Countdown", "영상 준비가 되지 않아서 재생할 수 없습니다!")
+                        }
                     }, 200)
                 }
             }

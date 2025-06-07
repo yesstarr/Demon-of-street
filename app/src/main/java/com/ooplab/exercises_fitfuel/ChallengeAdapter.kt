@@ -54,6 +54,7 @@ class ChallengeAdapter(
         holder.startChallengeButton.setOnClickListener {
             val intent = Intent(context, MainActivity::class.java)
             intent.putExtra("challengeId", item.challengeId)
+            intent.putExtra("videoUrl", item.videoUrl)
             context.startActivity(intent)
         }
     }
