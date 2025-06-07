@@ -1,19 +1,28 @@
 package com.ooplab.exercises_fitfuel
 
+
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.*
+
 import android.media.Image
+import android.renderscript.*
+import androidx.camera.core.ExperimentalGetImage
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.util.Log
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.VideoView
+import android.widget.MediaController
+import android.net.Uri
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -23,6 +32,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.framework.image.MPImage
+import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
@@ -31,24 +41,30 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStreamReader
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import kotlin.math.sqrt
+import android.annotation.SuppressLint
+import androidx.annotation.OptIn
+
 
 class MainActivity : AppCompatActivity() {
-
+    private lateinit var videoView: VideoView
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var previewView: PreviewView
     private lateinit var poseLandmarker: PoseLandmarker
     private lateinit var scoreTextView: TextView
+
     private lateinit var countdownText: TextView
+    private lateinit var yuvToRgbConverter: YuvToRgbConverter
+
     private var cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
     private var poseTrackingEnabled = false
-
-    private val recentFrames = mutableListOf<List<Float>>()
-    private val maxFrames = 30
+    private var videoReady = false
 
     private lateinit var referenceFrames: List<List<Float>>
+    private val recentFrames = mutableListOf<List<Float>>()
+    private val maxFrames = 30
     private var frameIndex = 0
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,7 +72,6 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         setupEdgeToEdge()
         initCameraExecutor()
-
 
         val backToMenuButton: Button = findViewById(R.id.backToMenuButton)
         backToMenuButton.setOnClickListener {
@@ -92,7 +107,21 @@ class MainActivity : AppCompatActivity() {
         scoreTextView = findViewById(R.id.score_text)
         countdownText = findViewById(R.id.countdown_text)
 
+        videoView = findViewById(R.id.videoView)
+        yuvToRgbConverter = YuvToRgbConverter(this)
+
         requestCameraPermission()
+
+        val uri = Uri.parse("android.resource://${packageName}/raw/chickenbanana")
+        videoView.setVideoURI(uri)
+        val mediaController = MediaController(this)
+        mediaController.setAnchorView(videoView)
+        videoView.setMediaController(mediaController)
+        videoView.setOnPreparedListener {
+            it.isLooping = true
+            videoReady = true
+            videoView.requestFocus()
+        }
 
 
     }
@@ -132,14 +161,18 @@ class MainActivity : AppCompatActivity() {
                     val score = calculateScore(landmarkList)
                     runOnUiThread {
                         when {
-                            score < 0.82 -> {
+
+                            score < 0.90 -> {
                                 scoreTextView.text = "BAD"
                                 scoreTextView.setTextColor(Color.RED)
                             }
-                            score < 0.88 -> {
+
+                            score < 0.96 -> {
                                 scoreTextView.text = "GOOD"
-                                scoreTextView.setTextColor(Color.parseColor("#FFA500")) // 주황색
+                                scoreTextView.setTextColor(Color.parseColor("#FFA500"))
                             }
+
+
                             else -> {
                                 scoreTextView.text = "PERFECT"
                                 scoreTextView.setTextColor(Color.BLUE)
@@ -165,6 +198,7 @@ class MainActivity : AppCompatActivity() {
 
         val referenceSegment = referenceFrames.take(recentFrames.size)
         return 1f - computeDTW(recentFrames, referenceSegment) // 유사도 점수는 낮을수록 가까움
+
     }
 
     private fun cosineSimilarity(a: List<Float>, b: List<Float>): Float {
@@ -229,7 +263,11 @@ class MainActivity : AppCompatActivity() {
                     handler.postDelayed(this, 1000)
                 } else {
                     countdownText.visibility = TextView.GONE
-                    poseTrackingEnabled = true
+
+                    handler.postDelayed({
+                        poseTrackingEnabled = true
+                        videoView.start()
+                    }, 200)
                 }
             }
         }
@@ -237,17 +275,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun hasCameraPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        return ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+
     }
 
     private fun setupCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
-            val preview = Preview.Builder().build().apply { setSurfaceProvider(previewView.surfaceProvider) }
+
+            val preview = Preview.Builder().build().apply {
+                setSurfaceProvider(previewView.surfaceProvider)
+            }
             val imageAnalyzer = ImageAnalysis.Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build().apply { setAnalyzer(cameraExecutor, ::analyzeImage) }
+                .build().apply {
+                    setAnalyzer(cameraExecutor, ::analyzeImage)
+                }
 
             try {
                 cameraProvider.unbindAll()
@@ -258,46 +305,28 @@ class MainActivity : AppCompatActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
-    @OptIn(ExperimentalGetImage::class)
+    @SuppressLint("UnsafeOptInUsageError")
     private fun analyzeImage(imageProxy: ImageProxy) {
         if (!poseTrackingEnabled) {
             imageProxy.close()
             return
         }
 
-        val mediaImage = imageProxy.image
-        if (mediaImage != null && imageProxy.format == ImageFormat.YUV_420_888) {
-            val bitmap = yuvToRgb(mediaImage, imageProxy)
-            val mpImage: MPImage = if (cameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA) {
-                val matrix = Matrix().apply {
-                    postRotate(imageProxy.imageInfo.rotationDegrees.toFloat())
-                    postScale(-1f, 1f, bitmap.width.toFloat(), bitmap.height.toFloat())
-                }
-                BitmapImageBuilder(Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)).build()
-            } else {
-                BitmapImageBuilder(bitmap).build()
+        val bitmap =
+            Bitmap.createBitmap(imageProxy.width, imageProxy.height, Bitmap.Config.ARGB_8888)
+        imageProxy.image?.let { image ->
+            try {
+                val converter = YuvToRgbConverter(this)
+                converter.yuvToRgb(image, bitmap)
+                val mpImage = BitmapImageBuilder(bitmap).build()
+                poseLandmarker.detectAsync(mpImage, System.currentTimeMillis())
+            } catch (e: Exception) {
+                Log.e("YUV", "Failed to convert YUV to RGB: ${e.message}")
             }
-            poseLandmarker.detectAsync(mpImage, imageProxy.imageInfo.timestamp)
-        }
-        imageProxy.close()
-    }
+        } ?: Log.w("YUV", "Image is null")
 
-    private fun yuvToRgb(image: Image, imageProxy: ImageProxy): Bitmap {
-        val yBuffer = image.planes[0].buffer
-        val uBuffer = image.planes[1].buffer
-        val vBuffer = image.planes[2].buffer
-        val ySize = yBuffer.remaining()
-        val uSize = uBuffer.remaining()
-        val vSize = vBuffer.remaining()
-        val nv21 = ByteArray(ySize + uSize + vSize)
-        yBuffer.get(nv21, 0, ySize)
-        vBuffer.get(nv21, ySize, vSize)
-        uBuffer.get(nv21, ySize + vSize, uSize)
-        val yuvImage = YuvImage(nv21, ImageFormat.NV21, imageProxy.width, imageProxy.height, null)
-        val out = ByteArrayOutputStream()
-        yuvImage.compressToJpeg(Rect(0, 0, imageProxy.width, imageProxy.height), 100, out)
-        val imageBytes = out.toByteArray()
-        return BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+        imageProxy.close()
+
     }
 
     override fun onDestroy() {
@@ -305,4 +334,44 @@ class MainActivity : AppCompatActivity() {
         cameraExecutor.shutdown()
         poseLandmarker.close()
     }
+
+
+    @Suppress("DEPRECATION")
+    class YuvToRgbConverter(context: Context) {
+        private val rs = RenderScript.create(context)
+
+        fun yuvToRgb(image: Image, output: Bitmap) {
+            val yuvBuffer = imageToByteArray(image)
+            val inputAllocation = Allocation.createSized(rs, Element.U8(rs), yuvBuffer.size)
+            val outputAllocation = Allocation.createFromBitmap(rs, output)
+
+            inputAllocation.copyFrom(yuvBuffer)
+
+            val script = ScriptIntrinsicYuvToRGB.create(rs, Element.U8_4(rs))
+            script.setInput(inputAllocation)
+            script.forEach(outputAllocation)
+
+            outputAllocation.copyTo(output)
+        }
+
+        private fun imageToByteArray(image: Image): ByteArray {
+            val planes = image.planes
+            val yPlane = planes[0].buffer
+            val uPlane = planes[1].buffer
+            val vPlane = planes[2].buffer
+
+            val ySize = yPlane.remaining()
+            val uSize = uPlane.remaining()
+            val vSize = vPlane.remaining()
+
+            val nv21 = ByteArray(ySize + uSize + vSize)
+
+            yPlane.get(nv21, 0, ySize)
+            vPlane.get(nv21, ySize, vSize)
+            uPlane.get(nv21, ySize + vSize, uSize)
+
+            return nv21
+        }
+    }
+
 }
