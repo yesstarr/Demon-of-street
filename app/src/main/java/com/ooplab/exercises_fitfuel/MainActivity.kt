@@ -15,6 +15,7 @@ import android.widget.TextView
 import android.widget.Toast
 import android.widget.VideoView
 import android.widget.MediaController
+import android.widget.Button
 import android.net.Uri
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -65,6 +66,10 @@ class MainActivity : AppCompatActivity() {
         scoreTextView = findViewById(R.id.score_text)
         countdownText = findViewById(R.id.countdown_text)
         videoView = findViewById(R.id.videoView)
+        val backButton = findViewById<Button>(R.id.backToMenuButton)
+        backButton.setOnClickListener {
+            finish()
+        }
         yuvToRgbConverter = YuvToRgbConverter(this)
 
         setupEdgeToEdge()
