@@ -2,8 +2,7 @@
 plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.jetbrains.kotlin.android) apply false
-<<<<<<< HEAD
-=======
+
     id("com.google.gms.google-services") version "4.4.2" apply false
 }
 allprojects {
@@ -18,5 +17,5 @@ allprojects {
             }
         }
     }
->>>>>>> 181b93c0db215785ed82cca6d26ee425bba7c77a
+
 }
