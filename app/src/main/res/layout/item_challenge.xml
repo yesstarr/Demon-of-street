@@ -1,0 +1,32 @@
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="8dp"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <!-- 챌린지 썸네일 이미지를 표시하는 ImageView -->
+    <ImageView
+        android:id="@+id/thumbnailImageView"
+        android:layout_width="match_parent"
+        android:layout_height="180dp"
+        android:scaleType="centerCrop"
+        android:contentDescription="썸네일"/>
+
+    <!-- 챌린지 제목을 표시하는 TextView -->
+    <TextView
+        android:id="@+id/titleTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="챌린지 제목"
+        android:textSize="16sp"
+        android:paddingTop="4dp"/>
+
+    <!-- 도전하기 버튼: 클릭 시 MainActivity로 이동 -->
+    <Button
+        android:id="@+id/startChallengeButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="도전하기"
+        android:layout_marginTop="8dp"/>
+</LinearLayout>

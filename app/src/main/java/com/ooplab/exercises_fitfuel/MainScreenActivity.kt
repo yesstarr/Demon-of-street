@@ -1,7 +1,7 @@
 package com.ooplab.exercises_fitfuel
 
-import android.content.Intent
 import android.os.Bundle
+import android.content.Intent
 import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
 
@@ -12,7 +12,7 @@ class MainScreenActivity : AppCompatActivity() {
 
         val btnChallenge = findViewById<Button>(R.id.btnChallengeMode)
         btnChallenge.setOnClickListener {
-            val intent = Intent(this, MainActivity::class.java)
+            val intent = Intent(this, RecyclerActivity::class.java)
             startActivity(intent)
         }
 

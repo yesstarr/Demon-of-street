@@ -24,8 +24,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name="com.ooplab.exercises_fitfuel.ResultActivity" />
 
         <activity android:name="com.ooplab.exercises_fitfuel.LoginActivity" />
+
+        <activity android:name="com.ooplab.exercises_fitfuel.RecyclerActivity" />
 
         <activity android:name="com.ooplab.exercises_fitfuel.SignupActivity" />
 
@@ -35,6 +38,7 @@
 
         <activity android:name="com.ooplab.exercises_fitfuel.MainActivity" />
 
+        <activity android:name=".VideoPlayerActivity" />
 
     </application>
 

@@ -1,21 +1,23 @@
 package com.ooplab.exercises_fitfuel
 
+
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+
 import android.media.Image
 import android.renderscript.*
-import androidx.camera.core.ExperimentalGetImage
-import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.util.Log
+import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import android.widget.VideoView
 import android.widget.MediaController
-import android.widget.Button
 import android.net.Uri
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,12 +34,14 @@ import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.math.sqrt
 import android.annotation.SuppressLint
+
+import java.io.BufferedReader
+import java.io.InputStreamReader
+
 
 class MainActivity : AppCompatActivity() {
     private lateinit var videoView: VideoView
@@ -45,7 +49,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var previewView: PreviewView
     private lateinit var poseLandmarker: PoseLandmarker
     private lateinit var scoreTextView: TextView
-
     private lateinit var countdownText: TextView
     private lateinit var yuvToRgbConverter: YuvToRgbConverter
 
@@ -56,38 +59,96 @@ class MainActivity : AppCompatActivity() {
     private lateinit var referenceFrames: List<List<Float>>
     private val recentFrames = mutableListOf<List<Float>>()
     private val maxFrames = 30
+    private var frameIndex = 0
 
+    private var videoDurationMs: Int = 0
+    private val allFrameScores = mutableListOf<Float>()
+    private var badCount = 0
+    private var goodCount = 0
+    private var perfectCount = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d("MainActivity", "onCreate called")
         setContentView(R.layout.activity_main)
+        setupEdgeToEdge()
+        initCameraExecutor()
 
-        previewView = findViewById(R.id.previewCam)
-        scoreTextView = findViewById(R.id.score_text)
-        countdownText = findViewById(R.id.countdown_text)
-        videoView = findViewById(R.id.videoView)
+        val backToMenuButton: Button = findViewById(R.id.backToMenuButton)
+        backToMenuButton.setOnClickListener {
+            val intent = Intent(this, MainScreenActivity::class.java)
+            startActivity(intent)
+            finish()
+        }
+
+        // 챌린지 ID 받아오기
+        val challengeId = intent.getStringExtra("challengeId") ?: "chicken_banana"
+        val videoUrl = intent.getStringExtra("videoUrl")
+        Log.d("CSV", "넘어온 challengeId = $challengeId")
+        Log.d("MainActivity", "loadCsvFromFirebaseStream 호출 시작")
+
+        // Firebase에서 원본 포즈 불러오기
+        AuthRepository().loadCsvFromFirebaseStream(
+            challengeId,
+            onLoaded = { frames ->
+                referenceFrames = frames
+                Log.d("CSV", "원본 포즈 ${frames.size}프레임 불러옴")
+                // 이제 준비가 되었으니 카메라 + 카운트다운 시작
+                recentFrames.clear()         // 이전 동작 초기화
+                frameIndex = 0               // 채점용 인덱스 초기화
+                setupCamera()
+                startCountdown()
+            },
+            onError = {
+                Log.e("CSV", "CSV 불러오기 실패: ${it.message}")
+                finish() //실패하면 이전화면으로 돌아가기
+            }
+        )
         val backButton = findViewById<Button>(R.id.backToMenuButton)
         backButton.setOnClickListener {
             finish()
         }
+
+        previewView = findViewById(R.id.previewCam)
+        scoreTextView = findViewById(R.id.score_text)
+        countdownText = findViewById(R.id.countdown_text)
+
+        videoView = findViewById(R.id.videoView)
         yuvToRgbConverter = YuvToRgbConverter(this)
 
-        setupEdgeToEdge()
-        initCameraExecutor()
         requestCameraPermission()
-        referenceFrames = loadReferencePoseFromAssets()
 
-        val uri = Uri.parse("android.resource://${packageName}/raw/chickenbanana")
-        videoView.setVideoURI(uri)
-        val mediaController = MediaController(this)
-        mediaController.setAnchorView(videoView)
-        videoView.setMediaController(mediaController)
-        videoView.setOnPreparedListener {
-            it.isLooping = true
-            videoReady = true
-            videoView.requestFocus()
+        videoUrl?.let {
+            Log.d("VideoDebug", "영상 URL: $it")  // URL 정상 여부 확인
+            videoView.setVideoURI(Uri.parse(it))
+            Log.d("VideoDebug", "setVideoURI 호출 완료")  // 👉 추가 로그
+
+            videoView.setOnPreparedListener { mp ->
+                mp.isLooping = true
+                videoDurationMs = mp.duration
+                videoReady = true
+                Log.d("VideoDebug", "영상 준비 완료, 길이 = $videoDurationMs ms")
+                videoView.requestFocus()
+            }
+
+            videoView.setOnErrorListener { mp, what, extra ->
+                Log.e("VideoDebug", "영상 재생 중 오류 발생: what=$what, extra=$extra")
+                false  // 시스템 기본 오류 처리 진행
+            }
+
+            val mediaController = MediaController(this)
+            mediaController.setAnchorView(videoView)
+            videoView.setMediaController(mediaController)
         }
 
+
+    }
+
+    //다른 액티비티에서 돌아올 때
+    override fun onResume() {
+        super.onResume()
+        recentFrames.clear() // 실시간 사용자 프레임 초기화
+        frameIndex = 0 // 기준 프레임 인덱스 초기화
     }
 
     private fun setupEdgeToEdge() {
@@ -112,13 +173,13 @@ class MainActivity : AppCompatActivity() {
             .setBaseOptions(baseOptions)
             .setRunningMode(RunningMode.LIVE_STREAM)
             .setResultListener { result, _ ->
-
                 if (!poseTrackingEnabled) return@setResultListener
 
                 result.landmarks().firstOrNull()?.let { landmarkList ->
                     val score = calculateScore(landmarkList)
                     runOnUiThread {
                         when {
+
                             score < 0.90 -> {
                                 scoreTextView.text = "BAD"
                                 scoreTextView.setTextColor(Color.RED)
@@ -142,20 +203,27 @@ class MainActivity : AppCompatActivity() {
         poseLandmarker = PoseLandmarker.createFromOptions(this, options)
     }
 
-
     private fun calculateScore(landmarks: List<NormalizedLandmark>): Float {
+        landmarks.forEachIndexed { index, lm ->
+            Log.d("UserPose", "관절 #$index → x=%.3f, y=%.3f, z=%.3f".format(lm.x(), lm.y(), lm.z()))
+        }
+
         val currentPose = landmarks.flatMap { listOf(it.x(), it.y(), it.z()) }
         recentFrames.add(currentPose)
         if (recentFrames.size > maxFrames) recentFrames.removeAt(0)
+
         if (referenceFrames.isEmpty() || recentFrames.size < 5) return 0f
+
         val referenceSegment = referenceFrames.take(recentFrames.size)
-        return 1f - computeDTW(recentFrames, referenceSegment)
+        return 1f - computeDTW(recentFrames, referenceSegment) // 유사도 점수는 낮을수록 가까움
+
     }
 
     private fun cosineSimilarity(a: List<Float>, b: List<Float>): Float {
         val dot = a.zip(b).sumOf { (x, y) -> (x * y).toDouble() }
         val normA = sqrt(a.sumOf { (it * it).toDouble() })
         val normB = sqrt(b.sumOf { (it * it).toDouble() })
+
         return (dot / (normA * normB)).toFloat().coerceIn(-1f, 1f)
     }
 
@@ -163,57 +231,29 @@ class MainActivity : AppCompatActivity() {
         val n = seq1.size
         val m = seq2.size
         val dtw = Array(n) { FloatArray(m) { Float.POSITIVE_INFINITY } }
-
-        // 초기값 설정
         dtw[0][0] = 1f - cosineSimilarity(seq1[0], seq2[0])
 
         for (i in 0 until n) {
             for (j in 0 until m) {
                 val cost = 1f - cosineSimilarity(seq1[i], seq2[j])
                 val minPrev = listOfNotNull(
-                    dtw.getOrNull(i - 1)?.getOrNull(j),      // 위쪽
-                    dtw.getOrNull(i)?.getOrNull(j - 1),      // 왼쪽
-                    dtw.getOrNull(i - 1)?.getOrNull(j - 1)   // 대각선
+                    dtw.getOrNull(i - 1)?.getOrNull(j),
+                    dtw.getOrNull(i)?.getOrNull(j - 1),
+                    dtw.getOrNull(i - 1)?.getOrNull(j - 1)
                 ).minOrNull() ?: 0f
                 dtw[i][j] = cost + minPrev
             }
         }
-
-        // 전체 누적 비용을 평균화해서 반환
-        return dtw[n - 1][m - 1] / (n + m)
+        return dtw[n - 1][m - 1] / (n + m) // normalize
     }
 
-    private fun loadReferencePoseFromAssets(): List<List<Float>> {
-        val inputStream = assets.open("correct_shorts.csv")
-        val reader = BufferedReader(InputStreamReader(inputStream))
-        val frames = mutableListOf<MutableList<Float>>()
-        var currentFrame = 0
-        var frameData = mutableListOf<Float>()
 
-        reader.readLines().drop(1).forEach { line ->
-            val cols = line.split(",")
-            val frame = cols[0].toInt()
-            val x = cols[3].toFloat()
-            val y = cols[4].toFloat()
-            val z = cols[5].toFloat()
-
-            if (frame != currentFrame) {
-                frames.add(frameData)
-                frameData = mutableListOf()
-                currentFrame = frame
-            }
-            frameData.addAll(listOf(x, y, z))
-        }
-        if (frameData.isNotEmpty()) frames.add(frameData)
-        return frames
-
-    }
 
     private val cameraPermissionLauncher: ActivityResultLauncher<String> =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-
-            if (granted) {
+            if (granted && referenceFrames.isNotEmpty()) {
                 setupCamera()
+
                 startCountdown()
             } else {
                 Toast.makeText(this, "Camera permission required", Toast.LENGTH_SHORT).show()
@@ -221,19 +261,19 @@ class MainActivity : AppCompatActivity() {
         }
 
     private fun requestCameraPermission() {
-        if (hasCameraPermission()) {
-            previewView.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-            setupCamera()
-            startCountdown()
-        } else {
+        if (!hasCameraPermission()) {
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
+        // 권한이 이미 있더라도 여기선 아무것도 하지 않음.
+        // CSV 로딩 성공 시점에서 setupCamera()와 startCountdown() 호출
     }
 
     private fun startCountdown() {
+        Log.d("Countdown", "카운트다운 시작")
         countdownText.visibility = TextView.VISIBLE
         val countdownValues = listOf("3", "2", "1", "Start!")
         var index = 0
+
         val handler = Handler(mainLooper)
         val runnable = object : Runnable {
             override fun run() {
@@ -243,9 +283,36 @@ class MainActivity : AppCompatActivity() {
                     handler.postDelayed(this, 1000)
                 } else {
                     countdownText.visibility = TextView.GONE
+                    Log.d("Countdown", "카운트다운 종료 → 영상 재생 및 포즈 트래킹 시작")
+
                     handler.postDelayed({
                         poseTrackingEnabled = true
-                        videoView.start()
+                        if (videoReady) {
+                            videoView.start()
+                            Log.d("Countdown", "영상 재생 시작")
+
+                            handler.postDelayed({
+                                poseTrackingEnabled = false
+                                videoView.pause()
+                                Log.d("Countdown", "영상 일시정지 → 결과 화면으로 이동")
+
+                                val averageScore = allFrameScores.average().toFloat()
+                                val total = badCount + goodCount + perfectCount
+                                val weightedScore = if (total > 0) {
+                                    (badCount * 1 + goodCount * 2 + perfectCount * 3).toDouble() / total
+                                } else 0.0
+
+                                val intent = Intent(this@MainActivity, ResultActivity::class.java).apply {
+                                    putExtra("averageScore", averageScore)
+                                    putExtra("weightedScore", weightedScore)
+                                }
+                                startActivity(intent)
+                                finish()
+                            }, videoDurationMs.toLong())
+
+                        } else {
+                            Log.e("Countdown", "영상 준비가 되지 않아서 재생할 수 없습니다!")
+                        }
                     }, 200)
                 }
             }
