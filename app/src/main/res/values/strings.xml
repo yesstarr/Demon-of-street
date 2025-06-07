@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">Exercises_FitFuel</string>
+<<<<<<< HEAD
+=======
+    <string name="small_preview_description">Small Preview</string>
+
+>>>>>>> 181b93c0db215785ed82cca6d26ee425bba7c77a
 </resources>
