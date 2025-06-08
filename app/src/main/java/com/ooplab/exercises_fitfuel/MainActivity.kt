@@ -52,7 +52,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var countdownText: TextView
     private lateinit var yuvToRgbConverter: YuvToRgbConverter
 
-    private var cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+    private var cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
     private var poseTrackingEnabled = false
     private var videoReady = false
 
@@ -177,6 +177,7 @@ class MainActivity : AppCompatActivity() {
 
                 result.landmarks().firstOrNull()?.let { landmarkList ->
                     val score = calculateScore(landmarkList)
+                    allFrameScores.add(score)
                     runOnUiThread {
                         when {
 

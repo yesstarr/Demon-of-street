@@ -81,4 +81,6 @@ dependencies {
     implementation("androidx.camera:camera-camera2:1.3.4")
     implementation("com.google.mediapipe:tasks-vision:0.10.0")
     implementation("androidx.camera:camera-core:1.3.4")
+    // CircleImageView (프로필 사진 원형 처리)
+    implementation("de.hdodenhof:circleimageview:3.1.0")
 }

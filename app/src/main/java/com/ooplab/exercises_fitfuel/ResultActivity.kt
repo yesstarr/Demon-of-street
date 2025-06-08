@@ -18,12 +18,10 @@ class ResultActivity : AppCompatActivity() {
 
         // UI 요소 연결
         val averageTextView = findViewById<TextView>(R.id.average_score_text)
-        val weightedTextView = findViewById<TextView>(R.id.weighted_score_text)
         val confirmButton = findViewById<Button>(R.id.confirm_button)
 
         // 점수 표시
-        averageTextView.text = String.format("평균 점수: %.2f", averageScore)
-        weightedTextView.text = String.format("가중 점수: %.2f", weightedScore)
+        averageTextView.text = String.format("최종 점수: %.2f", averageScore*100)
 
         // 확인 버튼 클릭 시 메인 화면으로 이동
         confirmButton.setOnClickListener {
