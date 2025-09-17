@@ -48,6 +48,7 @@ class ChallengeAdapter(
             val intent = Intent(context, VideoPlayerActivity::class.java)
             intent.putExtra("videoUrl", item.videoUrl)
             intent.putExtra("thumbnailUrl", item.thumbnailUrl) // 필요하면 표시용으로 넘김
+            intent.putExtra("challengeId", item.challengeId) // challengeId 추가
             context.startActivity(intent)
         }
 

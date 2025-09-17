@@ -43,7 +43,7 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 
 
-class MainActivity : AppCompatActivity() {
+class   MainActivity : AppCompatActivity() {
     private lateinit var videoView: VideoView
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var previewView: PreviewView
@@ -82,32 +82,35 @@ class MainActivity : AppCompatActivity() {
         }
 
         // 챌린지 ID 받아오기
+        Log.d("CrashDebug", "intent: $intent")
         val challengeId = intent.getStringExtra("challengeId") ?: "chicken_banana"
         val videoUrl = intent.getStringExtra("videoUrl")
-        Log.d("CSV", "넘어온 challengeId = $challengeId")
-        Log.d("MainActivity", "loadCsvFromFirebaseStream 호출 시작")
+        Log.d("CrashDebug", "challengeId: $challengeId, videoUrl: $videoUrl")
 
+        Log.d("CrashDebug", "Calling loadCsvFromFirebaseStream")
         // Firebase에서 원본 포즈 불러오기
         AuthRepository().loadCsvFromFirebaseStream(
             challengeId,
             onLoaded = { frames ->
+                Log.d("CrashDebug", "loadCsvFromFirebaseStream success")
                 referenceFrames = frames
                 Log.d("CSV", "원본 포즈 ${frames.size}프레임 불러옴")
                 // 이제 준비가 되었으니 카메라 + 카운트다운 시작
                 recentFrames.clear()         // 이전 동작 초기화
                 frameIndex = 0               // 채점용 인덱스 초기화
+                Log.d("CrashDebug", "Calling setupCamera")
                 setupCamera()
+                Log.d("CrashDebug", "Calling startCountdown")
                 startCountdown()
+                Log.d("CrashDebug", "setupCamera and startCountdown finished")
             },
             onError = {
+                Log.e("CrashDebug", "loadCsvFromFirebaseStream error: ${it.message}")
                 Log.e("CSV", "CSV 불러오기 실패: ${it.message}")
                 finish() //실패하면 이전화면으로 돌아가기
             }
         )
-        val backButton = findViewById<Button>(R.id.backToMenuButton)
-        backButton.setOnClickListener {
-            finish()
-        }
+        
 
         previewView = findViewById(R.id.previewCam)
         scoreTextView = findViewById(R.id.score_text)
@@ -136,9 +139,7 @@ class MainActivity : AppCompatActivity() {
                 false  // 시스템 기본 오류 처리 진행
             }
 
-            val mediaController = MediaController(this)
-            mediaController.setAnchorView(videoView)
-            videoView.setMediaController(mediaController)
+            
         }
 
 
@@ -179,22 +180,21 @@ class MainActivity : AppCompatActivity() {
                     val score = calculateScore(landmarkList)
                     allFrameScores.add(score)
                     runOnUiThread {
+                        val scorePercentage = score * 100
+                        scoreTextView.text = String.format("%d", scorePercentage.toInt())
+
                         when {
-
                             score < 0.90 -> {
-                                scoreTextView.text = "BAD"
                                 scoreTextView.setTextColor(Color.RED)
+                                badCount++
                             }
-
                             score < 0.96 -> {
-                                scoreTextView.text = "GOOD"
                                 scoreTextView.setTextColor(Color.parseColor("#FFA500"))
+                                goodCount++
                             }
-
-
                             else -> {
-                                scoreTextView.text = "PERFECT"
                                 scoreTextView.setTextColor(Color.BLUE)
+                                perfectCount++
                             }
                         }
                     }
@@ -202,6 +202,17 @@ class MainActivity : AppCompatActivity() {
             }.build()
 
         poseLandmarker = PoseLandmarker.createFromOptions(this, options)
+    }
+
+    // Helper functions to avoid resolution issues
+    private fun maxOf(a: Int, b: Int): Int = if (a > b) a else b
+    private fun minOf(a: Int, b: Int): Int = if (a < b) a else b
+    private fun minOf(a: Float, b: Float, c: Float): Float {
+        return if (a < b) {
+            if (a < c) a else c
+        } else {
+            if (b < c) b else c
+        }
     }
 
     private fun calculateScore(landmarks: List<NormalizedLandmark>): Float {
@@ -213,11 +224,27 @@ class MainActivity : AppCompatActivity() {
         recentFrames.add(currentPose)
         if (recentFrames.size > maxFrames) recentFrames.removeAt(0)
 
-        if (referenceFrames.isEmpty() || recentFrames.size < 5) return 0f
+        if (referenceFrames.isEmpty() || videoDurationMs == 0) return 0f
 
-        val referenceSegment = referenceFrames.take(recentFrames.size)
-        return 1f - computeDTW(recentFrames, referenceSegment) // 유사도 점수는 낮을수록 가까움
+        val videoTime = videoView.currentPosition
+        val totalRefFrames = referenceFrames.size
 
+        val currentRefFrameIndex = (videoTime.toFloat() / videoDurationMs.toFloat() * totalRefFrames).toInt()
+
+        val windowSize = recentFrames.size
+        val startIndex = maxOf(0, currentRefFrameIndex - windowSize / 2)
+        val endIndex = minOf(totalRefFrames, startIndex + windowSize)
+
+        if (startIndex >= endIndex) return 0f
+
+        val referenceSegment = referenceFrames.subList(startIndex, endIndex)
+
+        if (referenceSegment.isEmpty() || recentFrames.isEmpty()) return 0f
+
+        val dtwDistance = computeDTW(recentFrames, referenceSegment)
+        val amplifiedDistance = dtwDistance * 2.5f // 증폭 계수 유지
+        val score = 1f - amplifiedDistance
+        return score.coerceIn(0f, 1f) // 0~1 사이로 점수 유지
     }
 
     private fun cosineSimilarity(a: List<Float>, b: List<Float>): Float {
@@ -231,33 +258,42 @@ class MainActivity : AppCompatActivity() {
     private fun computeDTW(seq1: List<List<Float>>, seq2: List<List<Float>>): Float {
         val n = seq1.size
         val m = seq2.size
-        val dtw = Array(n) { FloatArray(m) { Float.POSITIVE_INFINITY } }
+        if (n == 0 || m == 0) return 0f // Prevent crash on empty sequences
+
+        val dtw = Array(n) { FloatArray(m) }
+
         dtw[0][0] = 1f - cosineSimilarity(seq1[0], seq2[0])
 
-        for (i in 0 until n) {
-            for (j in 0 until m) {
+        for (i in 1 until n) {
+            val cost = 1f - cosineSimilarity(seq1[i], seq2[0])
+            dtw[i][0] = cost + dtw[i - 1][0]
+        }
+
+        for (j in 1 until m) {
+            val cost = 1f - cosineSimilarity(seq1[0], seq2[j])
+            dtw[0][j] = cost + dtw[0][j - 1]
+        }
+
+        for (i in 1 until n) {
+            for (j in 1 until m) {
                 val cost = 1f - cosineSimilarity(seq1[i], seq2[j])
-                val minPrev = listOfNotNull(
-                    dtw.getOrNull(i - 1)?.getOrNull(j),
-                    dtw.getOrNull(i)?.getOrNull(j - 1),
-                    dtw.getOrNull(i - 1)?.getOrNull(j - 1)
-                ).minOrNull() ?: 0f
-                dtw[i][j] = cost + minPrev
+                dtw[i][j] = cost + minOf(dtw[i - 1][j], dtw[i][j - 1], dtw[i - 1][j - 1])
             }
         }
-        return dtw[n - 1][m - 1] / (n + m) // normalize
+
+        return dtw[n - 1][m - 1] / (n + m)
     }
 
 
 
     private val cameraPermissionLauncher: ActivityResultLauncher<String> =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted && referenceFrames.isNotEmpty()) {
+            if (granted && ::referenceFrames.isInitialized && referenceFrames.isNotEmpty()) {
                 setupCamera()
 
                 startCountdown()
             } else {
-                Toast.makeText(this, "Camera permission required", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Camera permission required or CSV not loaded", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -270,6 +306,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startCountdown() {
+        Log.d("CrashDebug", "startCountdown called")
         Log.d("Countdown", "카운트다운 시작")
         countdownText.visibility = TextView.VISIBLE
         val countdownValues = listOf("3", "2", "1", "Start!")
@@ -288,6 +325,7 @@ class MainActivity : AppCompatActivity() {
 
                     handler.postDelayed({
                         poseTrackingEnabled = true
+                        Log.d("CrashDebug", "videoReady: $videoReady")
                         if (videoReady) {
                             videoView.start()
                             Log.d("Countdown", "영상 재생 시작")
@@ -313,6 +351,7 @@ class MainActivity : AppCompatActivity() {
 
                         } else {
                             Log.e("Countdown", "영상 준비가 되지 않아서 재생할 수 없습니다!")
+                            Log.e("CrashDebug", "Video not ready, cannot start.")
                         }
                     }, 200)
                 }

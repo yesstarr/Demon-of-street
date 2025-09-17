@@ -2,6 +2,7 @@ package com.ooplab.exercises_fitfuel
 
 import android.os.Bundle
 import android.util.Log
+import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -25,5 +26,10 @@ class RecyclerActivity : AppCompatActivity() {
                 Log.e("ChallengeMetaLoad", "Failed to load challenge meta list: ${e.message}")
             }
         )
+
+        val btnConfirm = findViewById<Button>(R.id.btnConfirm)
+        btnConfirm.setOnClickListener {
+            finish()
+        }
     }
 }

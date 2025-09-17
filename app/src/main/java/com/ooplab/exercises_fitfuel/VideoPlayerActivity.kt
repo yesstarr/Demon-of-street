@@ -1,7 +1,9 @@
 package com.ooplab.exercises_fitfuel
 
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
@@ -26,6 +28,7 @@ class VideoPlayerActivity : AppCompatActivity() {
         // MainScreenActivity에서 전달받은 videoUrl, thumbnailUrl 읽기
         val videoUrl = intent.getStringExtra("videoUrl") ?: return
         val thumbnailUrl = intent.getStringExtra("thumbnailUrl")
+        val challengeId = intent.getStringExtra("challengeId")
 
         // ExoPlayer 초기화 및 세팅
         player = ExoPlayer.Builder(this).build().also { exoPlayer ->
@@ -38,6 +41,14 @@ class VideoPlayerActivity : AppCompatActivity() {
             exoPlayer.setMediaItem(mediaItem)
             exoPlayer.prepare()
             exoPlayer.play()
+        }
+
+        val startChallengeButton = findViewById<Button>(R.id.start_challenge_button)
+        startChallengeButton.setOnClickListener {
+            val intent = Intent(this, MainActivity::class.java)
+            intent.putExtra("challengeId", challengeId)
+            intent.putExtra("videoUrl", videoUrl)
+            startActivity(intent)
         }
     }
 

@@ -3,6 +3,7 @@ package com.ooplab.exercises_fitfuel
 import android.os.Bundle
 import android.content.Intent
 import android.widget.Button
+import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
 
 class MainScreenActivity : AppCompatActivity() {
@@ -20,6 +21,11 @@ class MainScreenActivity : AppCompatActivity() {
         btnPractice.setOnClickListener {
             val intent = Intent(this, MyPageActivity::class.java)
             startActivity(intent)
+        }
+
+        val backButton = findViewById<ImageView>(R.id.backButton)
+        backButton.setOnClickListener {
+            finish()
         }
     }
 }
