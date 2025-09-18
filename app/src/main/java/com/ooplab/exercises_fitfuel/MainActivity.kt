@@ -5,6 +5,9 @@ import com.ooplab.exercises_fitfuel.PoseIdx
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import com.ooplab.exercises_fitfuel.AuthRepository
+import com.ooplab.exercises_fitfuel.MainScreenActivity
+import com.ooplab.exercises_fitfuel.ResultActivity
 
 import android.media.Image
 import android.renderscript.*
@@ -13,6 +16,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.widget.Button
 import android.widget.TextView
@@ -67,6 +71,10 @@ class   MainActivity : AppCompatActivity() {
     private var badCount = 0
     private var goodCount = 0
     private var perfectCount = 0
+
+    private var countdownHandler: Handler? = null
+    private var countdownRunnable: Runnable? = null
+
     // MediaPipe Pose xyz 기대 차원(33 * 3)
     private val EXPECTED_XYZ_DIMS = 33 * 3
     // === 각도/뼈대 벡터 유틸 ===
@@ -614,25 +622,25 @@ class   MainActivity : AppCompatActivity() {
         val countdownValues = listOf("3", "2", "1", "Start!")
         var index = 0
 
-        val handler = Handler(mainLooper)
-        val runnable = object : Runnable {
+        countdownHandler = Handler(Looper.getMainLooper())
+        countdownRunnable = object : Runnable {
             override fun run() {
                 if (index < countdownValues.size) {
                     countdownText.text = countdownValues[index]
                     index++
-                    handler.postDelayed(this, 1000)
+                    countdownHandler?.postDelayed(this, 1000)
                 } else {
                     countdownText.visibility = TextView.GONE
                     Log.d("Countdown", "카운트다운 종료 → 영상 재생 및 포즈 트래킹 시작")
 
-                    handler.postDelayed({
+                    countdownHandler?.postDelayed({
                         poseTrackingEnabled = true
                         Log.d("CrashDebug", "videoReady: $videoReady")
                         if (videoReady) {
                             videoView.start()
                             Log.d("Countdown", "영상 재생 시작")
 
-                            handler.postDelayed({
+                            countdownHandler?.postDelayed({
                                 poseTrackingEnabled = false
                                 videoView.pause()
                                 Log.d("Countdown", "영상 일시정지 → 결과 화면으로 이동")
@@ -659,7 +667,7 @@ class   MainActivity : AppCompatActivity() {
                 }
             }
         }
-        handler.post(runnable)
+        countdownHandler?.post(countdownRunnable!!)
     }
 
     private fun hasCameraPermission(): Boolean {
@@ -719,6 +727,7 @@ class   MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        countdownHandler?.removeCallbacksAndMessages(null)
         cameraExecutor.shutdown()
         poseLandmarker.close()
     }
