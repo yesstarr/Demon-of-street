@@ -1,6 +1,7 @@
 package com.ooplab.exercises_fitfuel
 
 
+import com.ooplab.exercises_fitfuel.PoseIdx
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -51,29 +52,54 @@ class   MainActivity : AppCompatActivity() {
     private lateinit var scoreTextView: TextView
     private lateinit var countdownText: TextView
     private lateinit var yuvToRgbConverter: YuvToRgbConverter
-
     private var cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
     private var poseTrackingEnabled = false
     private var videoReady = false
-
+    private var penaltyScore: Float = 100f
     private lateinit var referenceFrames: List<List<Float>>
     private val recentFrames = mutableListOf<List<Float>>()
     private val maxFrames = 30
     private var frameIndex = 0
-
+    private var lastPoseTime: Long = System.currentTimeMillis()
+    private var currentScore: Float = 100f  // 화면/평균 둘 다 이 값 기준으로 갱신
     private var videoDurationMs: Int = 0
     private val allFrameScores = mutableListOf<Float>()
     private var badCount = 0
     private var goodCount = 0
     private var perfectCount = 0
+    // MediaPipe Pose xyz 기대 차원(33 * 3)
+    private val EXPECTED_XYZ_DIMS = 33 * 3
+    // === 각도/뼈대 벡터 유틸 ===
+    // === EMA smoothing 상태 ===
+    private var lastSmoothedFrame: List<Float>? = null
+    private val emaAlpha = 0.4f   // 0.3~0.5 사이 값 추천 (0.4면 적당히 부드럽고 반응 빠름)
 
+    // 프레임에서 (x,y,z) 가져오기
+    private inline fun xyz(frame: List<Float>, i: Int): Triple<Float, Float, Float> {
+        val x = frame[3*i]; val y = frame[3*i+1]; val z = frame[3*i+2]
+        return Triple(x, y, z)
+    }
+
+    private data class Vec3(val x: Float, val y: Float, val z: Float)
+
+    private fun sub(a: Vec3, b: Vec3) = Vec3(a.x - b.x, a.y - b.y, a.z - b.z)
+    private fun toVec3(t: Triple<Float, Float, Float>) = Vec3(t.first, t.second, t.third)
+    private fun dot(a: Vec3, b: Vec3) = (a.x*b.x + a.y*b.y + a.z*b.z)
+    private fun norm(a: Vec3) = kotlin.math.sqrt((a.x*a.x + a.y*a.y + a.z*a.z).toDouble()).toFloat()
+
+    // 두 벡터 사이 각도의 cos(0~1) 반환(벡터가 너무 짧으면 0 반환)
+    private fun cosBetween(a: Vec3, b: Vec3): Float {
+        val na = norm(a); val nb = norm(b)
+        if (na < 1e-6f || nb < 1e-6f) return 0f
+        val c = (dot(a,b) / (na*nb)).coerceIn(-1f, 1f)
+        return c
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Log.d("MainActivity", "onCreate called")
         setContentView(R.layout.activity_main)
         setupEdgeToEdge()
         initCameraExecutor()
-
         val backToMenuButton: Button = findViewById(R.id.backToMenuButton)
         backToMenuButton.setOnClickListener {
             val intent = Intent(this, MainScreenActivity::class.java)
@@ -86,39 +112,30 @@ class   MainActivity : AppCompatActivity() {
         val challengeId = intent.getStringExtra("challengeId") ?: "chicken_banana"
         val videoUrl = intent.getStringExtra("videoUrl")
         Log.d("CrashDebug", "challengeId: $challengeId, videoUrl: $videoUrl")
-
         Log.d("CrashDebug", "Calling loadCsvFromFirebaseStream")
         // Firebase에서 원본 포즈 불러오기
         AuthRepository().loadCsvFromFirebaseStream(
             challengeId,
-            onLoaded = { frames ->
-                Log.d("CrashDebug", "loadCsvFromFirebaseStream success")
-                referenceFrames = frames
-                Log.d("CSV", "원본 포즈 ${frames.size}프레임 불러옴")
-                // 이제 준비가 되었으니 카메라 + 카운트다운 시작
-                recentFrames.clear()         // 이전 동작 초기화
-                frameIndex = 0               // 채점용 인덱스 초기화
-                Log.d("CrashDebug", "Calling setupCamera")
+            onLoaded = { frames132 ->
+                // ✅ 132차원 -> 99차원으로 통일
+                referenceFrames = frames132.map { stripVisibilityKeepXYZ(it) }
+                Log.d("CSV", "원본 포즈 ${referenceFrames.size}프레임(visibility 제거, xyz 99)")
+
+                recentFrames.clear()
+                frameIndex = 0
                 setupCamera()
-                Log.d("CrashDebug", "Calling startCountdown")
                 startCountdown()
-                Log.d("CrashDebug", "setupCamera and startCountdown finished")
             },
             onError = {
-                Log.e("CrashDebug", "loadCsvFromFirebaseStream error: ${it.message}")
                 Log.e("CSV", "CSV 불러오기 실패: ${it.message}")
                 finish() //실패하면 이전화면으로 돌아가기
             }
         )
-        
-
         previewView = findViewById(R.id.previewCam)
         scoreTextView = findViewById(R.id.score_text)
         countdownText = findViewById(R.id.countdown_text)
-
         videoView = findViewById(R.id.videoView)
         yuvToRgbConverter = YuvToRgbConverter(this)
-
         requestCameraPermission()
 
         videoUrl?.let {
@@ -160,15 +177,170 @@ class   MainActivity : AppCompatActivity() {
         }
     }
 
+
+    // 132(x,y,z,vis × 33) → 99(x,y,z × 33)로 변환
+    private fun stripVisibilityKeepXYZ(raw132: List<Float>): List<Float> {
+        val out = ArrayList<Float>(33 * 3)
+        var i = 0
+        while (i + 3 < raw132.size) {
+            out.add(raw132[i])     // x
+            out.add(raw132[i + 1]) // y
+            out.add(raw132[i + 2]) // z
+            i += 4                 // visibility는 건너뜀
+        }
+        return out
+    }
+
+    // 런타임 프레임(99)에 NaN/Inf 방어 + 길이 검증
+    private fun sanitizeXYZ(raw: List<Float>): List<Float>? {
+        if (raw.size != EXPECTED_XYZ_DIMS) return null
+        val out = FloatArray(EXPECTED_XYZ_DIMS)
+        for (i in raw.indices) {
+            val v = raw[i]
+            out[i] = if (v.isFinite()) v else 0f
+        }
+        return out.toList()
+    }
+
     private fun initCameraExecutor() {
         cameraExecutor = Executors.newSingleThreadExecutor()
         initializePoseLandmarker()
     }
+    // === 관절 각도 특징: 각 관절의 끼인각 cos을 모아 하나의 feature 벡터(길이 고정) ===
+    private fun angleFeature(frameNorm: List<Float>): FloatArray {
+        // frameNorm은 normalizeFrameByRoot()를 거친 좌표여야 함
+        fun v(i:Int)= toVec3(xyz(frameNorm, i))
 
+        // 각도 계산을 위한 삼각관계(중점 j에 대해 (a-j)와 (b-j) 각도)
+        fun angleCos(a:Int, j:Int, b:Int): Float {
+            val ja = sub(v(a), v(j))
+            val jb = sub(v(b), v(j))
+            return ( (cosBetween(ja, jb) + 1f) * 0.5f ) // [-1,1]→[0,1]로 매핑(안정적)
+        }
+
+        val feats = ArrayList<Float>(16)
+
+        // 팔꿈치(Upper-forearm)
+        feats += angleCos(PoseIdx.LEFT_SHOULDER, PoseIdx.LEFT_ELBOW, PoseIdx.LEFT_WRIST)
+        feats += angleCos(PoseIdx.RIGHT_SHOULDER, PoseIdx.RIGHT_ELBOW, PoseIdx.RIGHT_WRIST)
+
+        // 어깨(목-상완) — 목 대신 양 어깨 중점 근사: (LS, RS)와 상완 벡터
+        // 간단히 반대쪽 어깨와 팔꿈치로 어깨각 근사
+        feats += angleCos(PoseIdx.RIGHT_SHOULDER, PoseIdx.LEFT_SHOULDER, PoseIdx.LEFT_ELBOW)
+        feats += angleCos(PoseIdx.LEFT_SHOULDER, PoseIdx.RIGHT_SHOULDER, PoseIdx.RIGHT_ELBOW)
+
+        // 무릎(Thigh-shin)
+        feats += angleCos(PoseIdx.LEFT_HIP, PoseIdx.LEFT_KNEE, PoseIdx.LEFT_ANKLE)
+        feats += angleCos(PoseIdx.RIGHT_HIP, PoseIdx.RIGHT_KNEE, PoseIdx.RIGHT_ANKLE)
+
+        // 고관절(몸통-허벅지)
+        feats += angleCos(PoseIdx.LEFT_SHOULDER, PoseIdx.LEFT_HIP, PoseIdx.LEFT_KNEE)
+        feats += angleCos(PoseIdx.RIGHT_SHOULDER, PoseIdx.RIGHT_HIP, PoseIdx.RIGHT_KNEE)
+
+        // 발목(발등 각도 근사: 종아리-발끝)
+        feats += angleCos(PoseIdx.LEFT_KNEE, PoseIdx.LEFT_ANKLE, PoseIdx.LEFT_FOOT_INDEX)
+        feats += angleCos(PoseIdx.RIGHT_KNEE, PoseIdx.RIGHT_ANKLE, PoseIdx.RIGHT_FOOT_INDEX)
+
+        // 손목(전완-손 방향)
+        feats += angleCos(PoseIdx.LEFT_ELBOW, PoseIdx.LEFT_WRIST, PoseIdx.LEFT_INDEX)
+        feats += angleCos(PoseIdx.RIGHT_ELBOW, PoseIdx.RIGHT_WRIST, PoseIdx.RIGHT_INDEX)
+
+        // 몸통 기울기(골반-어깨 라인 vs 수직): 간단히 좌우어깨-좌우엉덩이 벡터
+        run {
+            val pelvis = toVec3(Triple(
+                (frameNorm[3*PoseIdx.LEFT_HIP] + frameNorm[3*PoseIdx.RIGHT_HIP]) * 0.5f,
+                (frameNorm[3*PoseIdx.LEFT_HIP+1] + frameNorm[3*PoseIdx.RIGHT_HIP+1]) * 0.5f,
+                (frameNorm[3*PoseIdx.LEFT_HIP+2] + frameNorm[3*PoseIdx.RIGHT_HIP+2]) * 0.5f
+            ))
+            val chest = toVec3(Triple(
+                (frameNorm[3*PoseIdx.LEFT_SHOULDER] + frameNorm[3*PoseIdx.RIGHT_SHOULDER]) * 0.5f,
+                (frameNorm[3*PoseIdx.LEFT_SHOULDER+1] + frameNorm[3*PoseIdx.RIGHT_SHOULDER+1]) * 0.5f,
+                (frameNorm[3*PoseIdx.LEFT_SHOULDER+2] + frameNorm[3*PoseIdx.RIGHT_SHOULDER+2]) * 0.5f
+            ))
+            val spine = sub(chest, pelvis)
+            // 수직 기준 벡터: (0,1,0) 근사 (정규화된 좌표계라 대략적 비교용)
+            val up = Vec3(0f, 1f, 0f)
+            feats += ( (cosBetween(spine, up) + 1f) * 0.5f )
+        }
+
+        return feats.toFloatArray()
+    }
+    // 각도 시퀀스 점수(0~1)
+    private fun angleSequenceScore(
+        refNorm: List<List<Float>>,
+        usrNorm: List<List<Float>>,
+        tau: Int,
+        window: Int = 6,
+        topK: Int = 20
+    ): Float {
+        // 각 프레임을 각도 특징으로 변환
+        val refA = refNorm.map { angleFeature(it).toList() }
+        val usrA = usrNorm.map { angleFeature(it).toList() }
+
+        // ref 쪽 앵커는 좌표 기반과 동일(움직임 큰 곳을 앵커로 보는 개념 유지)
+        val energy = motionEnergy(refNorm)
+        // 각도 벡터끼리 코사인 비교를 동일 창/상위K 방식으로 수행
+        return anchorScore(refA, usrA, tau, energy, window, topK)
+    }
+    // 하이브리드 점수: 좌표 기반 + 각도 기반
+    private fun scoreHybridCosine(
+        userFramesRaw: List<List<Float>>,
+        refFramesRaw: List<List<Float>>,
+        tryMirror: Boolean = true,
+        wPose: Float = 0.6f,   // 좌표 유사도 가중
+        wAngle: Float = 0.4f   // 각도 유사도 가중
+    ): Float {
+        if (userFramesRaw.isEmpty() || refFramesRaw.isEmpty()) return 0f
+
+        // 1) 정규화
+        val refN = refFramesRaw.map { normalizeFrameByRoot(it) }
+        val usrN = userFramesRaw.map { normalizeFrameByRoot(it) }
+        val usrMirN = if (tryMirror) usrN.map { mirrorWithSwap(it) } else null
+
+        // 2) 한 번만 모션에너지 계산
+        val energy = motionEnergy(refN)
+
+        fun runOne(targetN: List<List<Float>>): Float {
+            // 좌표 기반으로 전역 시프트 추정
+            val tau = estimateGlobalShift(refN, targetN)
+
+            // 좌표 점수(0~1)
+            val poseS = anchorScore(refN, targetN, tau, energy)
+
+            // 각도 점수(0~1)
+            val angS = angleSequenceScore(refN, targetN, tau)
+
+            // 하이브리드(0~1)
+            val mix = (wPose * poseS + wAngle * angS).coerceIn(0f, 1f)
+            return mix
+        }
+
+        val s1 = runOne(usrN)
+        val s2 = usrMirN?.let { runOne(it) } ?: -1f
+        val best01 = maxOf(s1, s2)
+
+        // 0~100로 매핑
+        return (best01 * 100f).coerceIn(0f, 100f)
+    }
+    // === EMA smoothing 함수 ===
+    private fun applyEMA(current: List<Float>): List<Float> {
+        val prev = lastSmoothedFrame
+        if (prev == null || prev.size != current.size) {
+            lastSmoothedFrame = current
+            return current
+        }
+        val smoothed = FloatArray(current.size)
+        for (i in current.indices) {
+            smoothed[i] = emaAlpha * current[i] + (1 - emaAlpha) * prev[i]
+        }
+        lastSmoothedFrame = smoothed.toList()
+        return lastSmoothedFrame!!
+    }
     private fun initializePoseLandmarker() {
         val baseOptions = BaseOptions.builder()
             .setModelAssetPath("pose_landmarker_full.task")
             .build()
+
 
         val options = PoseLandmarker.PoseLandmarkerOptions.builder()
             .setBaseOptions(baseOptions)
@@ -176,34 +348,47 @@ class   MainActivity : AppCompatActivity() {
             .setResultListener { result, _ ->
                 if (!poseTrackingEnabled) return@setResultListener
 
-                result.landmarks().firstOrNull()?.let { landmarkList ->
-                    val score = calculateScore(landmarkList)
-                    allFrameScores.add(score)
-                    runOnUiThread {
-                        val scorePercentage = score * 100
-                        scoreTextView.text = String.format("%d", scorePercentage.toInt())
+                val now = System.currentTimeMillis()
+                val landmarkList = result.landmarks().firstOrNull()
 
-                        when {
-                            score < 0.90 -> {
-                                scoreTextView.setTextColor(Color.RED)
-                                badCount++
-                            }
-                            score < 0.96 -> {
-                                scoreTextView.setTextColor(Color.parseColor("#FFA500"))
-                                goodCount++
-                            }
-                            else -> {
-                                scoreTextView.setTextColor(Color.BLUE)
-                                perfectCount++
-                            }
-                        }
+                if (landmarkList != null) {
+                    // ✅ 포즈가 잡힌 경우: 점수 계산 → currentScore 갱신
+                    lastPoseTime = now
+                    val score = calculateScore(landmarkList)      // 0~100 반환
+                    currentScore = score
+
+                    // 등급 카운트 업데이트
+                    when {
+                        currentScore < 90f -> badCount++
+                        currentScore < 96f -> goodCount++
+                        else ->               perfectCount++
+                    }
+                } else {
+                    // ✅ 포즈 미검출: 지난 초만큼 3점씩 감점
+                    val elapsedSec = ((now - lastPoseTime) / 1000L).toInt()
+                    if (elapsedSec > 0) {
+                        currentScore = (currentScore - 3f * elapsedSec).coerceAtLeast(0f)
+                        lastPoseTime += elapsedSec * 1000L
+                        // 미검출은 BAD로 간주하고 싶으면 아래 주석 해제
+                        // badCount++
                     }
                 }
-            }.build()
+
+                // ✅ 화면 표시 & 기록(감지/미감지 모두 동일 로직!)
+                allFrameScores.add(currentScore)
+                runOnUiThread {
+                    scoreTextView.text = "${currentScore.toInt()}"
+                    when {
+                        currentScore < 90f -> scoreTextView.setTextColor(Color.RED)
+                        currentScore < 96f -> scoreTextView.setTextColor(Color.parseColor("#FFA500"))
+                        else               -> scoreTextView.setTextColor(Color.BLUE)
+                    }
+                }
+            }
+            .build()
 
         poseLandmarker = PoseLandmarker.createFromOptions(this, options)
     }
-
     // Helper functions to avoid resolution issues
     private fun maxOf(a: Int, b: Int): Int = if (a > b) a else b
     private fun minOf(a: Int, b: Int): Int = if (a < b) a else b
@@ -214,74 +399,191 @@ class   MainActivity : AppCompatActivity() {
             if (b < c) b else c
         }
     }
-
     private fun calculateScore(landmarks: List<NormalizedLandmark>): Float {
-        landmarks.forEachIndexed { index, lm ->
-            Log.d("UserPose", "관절 #$index → x=%.3f, y=%.3f, z=%.3f".format(lm.x(), lm.y(), lm.z()))
-        }
+        // 1) 현재 프레임 → (x,y,z)*33 벡터
+        val currentPoseRaw = landmarks.flatMap { listOf(it.x(), it.y(), it.z()) }
+        val currentPose = sanitizeXYZ(currentPoseRaw) ?: return 0f
 
-        val currentPose = landmarks.flatMap { listOf(it.x(), it.y(), it.z()) }
-        recentFrames.add(currentPose)
+// ✅ EMA smoothing 적용
+        val smoothedPose = applyEMA(currentPose)
+
+        recentFrames.add(smoothedPose)
         if (recentFrames.size > maxFrames) recentFrames.removeAt(0)
 
-        if (referenceFrames.isEmpty() || videoDurationMs == 0) return 0f
+        // 2) 최소 버퍼 확보
+        if (referenceFrames.isEmpty() || recentFrames.size < 8) return 0f
 
-        val videoTime = videoView.currentPosition
-        val totalRefFrames = referenceFrames.size
+        // 3) 레퍼런스 길이 맞추기 (앞부분만 사용; 리샘플 권장)
+        val refSegment = referenceFrames
+            .take(recentFrames.size)
+            .mapNotNull { sanitizeXYZ(it) }
+        if (refSegment.isEmpty()) return 0f
 
-        val currentRefFrameIndex = (videoTime.toFloat() / videoDurationMs.toFloat() * totalRefFrames).toInt()
 
-        val windowSize = recentFrames.size
-        val startIndex = maxOf(0, currentRefFrameIndex - windowSize / 2)
-        val endIndex = minOf(totalRefFrames, startIndex + windowSize)
-
-        if (startIndex >= endIndex) return 0f
-
-        val referenceSegment = referenceFrames.subList(startIndex, endIndex)
-
-        if (referenceSegment.isEmpty() || recentFrames.isEmpty()) return 0f
-
-        val dtwDistance = computeDTW(recentFrames, referenceSegment)
-        val amplifiedDistance = dtwDistance * 2.5f // 증폭 계수 유지
-        val score = 1f - amplifiedDistance
-        return score.coerceIn(0f, 1f) // 0~1 사이로 점수 유지
+        // 4) 코사인 기반 점수 계산
+        return scoreHybridCosine(
+            userFramesRaw = recentFrames.take(refSegment.size),
+            refFramesRaw = refSegment,
+            tryMirror = true,
+            wPose = 0.6f,
+            wAngle = 0.4f
+        )
     }
 
-    private fun cosineSimilarity(a: List<Float>, b: List<Float>): Float {
-        val dot = a.zip(b).sumOf { (x, y) -> (x * y).toDouble() }
-        val normA = sqrt(a.sumOf { (it * it).toDouble() })
-        val normB = sqrt(b.sumOf { (it * it).toDouble() })
-
-        return (dot / (normA * normB)).toFloat().coerceIn(-1f, 1f)
+    private fun cosine(a: List<Float>, b: List<Float>): Float {
+        var dot = 0.0; var na = 0.0; var nb = 0.0
+        for (i in a.indices) {
+            val x = a[i].toDouble()
+            val y = b[i].toDouble()
+            dot += x * y
+            na += x * x
+            nb += y * y
+        }
+        if (na < 1e-12 || nb < 1e-12) return 0f
+        return (dot / (kotlin.math.sqrt(na) * kotlin.math.sqrt(nb))).toFloat().coerceIn(-1f, 1f)
     }
 
-    private fun computeDTW(seq1: List<List<Float>>, seq2: List<List<Float>>): Float {
-        val n = seq1.size
-        val m = seq2.size
-        if (n == 0 || m == 0) return 0f // Prevent crash on empty sequences
+    // 루트(골반 중심) 기준 정규화 + 어깨폭 스케일링
+    private fun normalizeFrameByRoot(raw: List<Float>): List<Float> {
+        fun v(i:Int)=Triple(raw[3*i], raw[3*i+1], raw[3*i+2])
 
-        val dtw = Array(n) { FloatArray(m) }
+        val (lx,ly,lz)=v(PoseIdx.LEFT_HIP); val (rx,ry,rz)=v(PoseIdx.RIGHT_HIP)
+        val rootX=(lx+rx)/2f; val rootY=(ly+ry)/2f; val rootZ=(lz+rz)/2f
 
-        dtw[0][0] = 1f - cosineSimilarity(seq1[0], seq2[0])
+        val (lsx,lsy,lsz)=v(PoseIdx.LEFT_SHOULDER); val (rsx,rsy,rsz)=v(PoseIdx.RIGHT_SHOULDER)
+        val shoulderW = kotlin.math.sqrt(
+            ((lsx-rsx)*(lsx-rsx) + (lsy-rsy)*(lsy-rsy) + (lsz-rsz)*(lsz-rsz)).toDouble()
+        ).toFloat().coerceAtLeast(1e-4f)
 
-        for (i in 1 until n) {
-            val cost = 1f - cosineSimilarity(seq1[i], seq2[0])
-            dtw[i][0] = cost + dtw[i - 1][0]
+        val out = FloatArray(raw.size)
+        for (i in raw.indices step 3) {
+            out[i]   = (raw[i]   - rootX) / shoulderW
+            out[i+1] = (raw[i+1] - rootY) / shoulderW
+            out[i+2] = (raw[i+2] - rootZ) / shoulderW * 0.3f // z 축 가중치 낮춤
         }
+        return out.toList()
+    }
 
-        for (j in 1 until m) {
-            val cost = 1f - cosineSimilarity(seq1[0], seq2[j])
-            dtw[0][j] = cost + dtw[0][j - 1]
-        }
+    // 좌우 미러: x 반전 + 좌우 swap
+    private fun mirrorWithSwap(frame: List<Float>): List<Float> {
+        val n = frame.size / 3
+        val tmp = frame.toMutableList()
 
-        for (i in 1 until n) {
-            for (j in 1 until m) {
-                val cost = 1f - cosineSimilarity(seq1[i], seq2[j])
-                dtw[i][j] = cost + minOf(dtw[i - 1][j], dtw[i][j - 1], dtw[i - 1][j - 1])
+        // x 좌표 반전
+        for (i in 0 until n) tmp[3*i] = -tmp[3*i]
+
+        // 좌/우 관절 swap
+        fun swap(a:Int, b:Int) {
+            for (k in 0 until 3) {
+                val ia = 3*a+k; val ib = 3*b+k
+                val t = tmp[ia]; tmp[ia]=tmp[ib]; tmp[ib]=t
             }
         }
+        PoseIdx.LEFT_TO_RIGHT.forEach { (l, r) -> swap(l, r) }
 
-        return dtw[n - 1][m - 1] / (n + m)
+        // 반전 후 다시 정규화
+        return normalizeFrameByRoot(tmp)
+    }
+
+    // 전역 시프트 추정
+    private fun estimateGlobalShift(
+        ref: List<List<Float>>,
+        usr: List<List<Float>>,
+        maxShift: Int = 12
+    ): Int {
+        var bestTau = 0
+        var bestScore = Float.NEGATIVE_INFINITY
+        for (tau in -maxShift..maxShift) {
+            var sum = 0f; var cnt = 0
+            val start = maxOf(0, -tau)
+            val end = minOf(ref.size, usr.size - tau)
+            for (t in start until end) {
+                sum += cosine(ref[t], usr[t + tau])
+                cnt++
+            }
+            if (cnt > 0) {
+                val mean = sum / cnt
+                if (mean > bestScore) {
+                    bestScore = mean
+                    bestTau = tau
+                }
+            }
+        }
+        return bestTau
+    }
+
+    // 모션 에너지
+    private fun motionEnergy(frames: List<List<Float>>): FloatArray {
+        val e = FloatArray(frames.size) { 0f }
+        for (t in 1 until frames.size) {
+            var s = 0.0
+            val a = frames[t]; val b = frames[t-1]
+            for (i in a.indices) {
+                val d = (a[i] - b[i]).toDouble()
+                s += d * d
+            }
+            e[t] = kotlin.math.sqrt(s).toFloat()
+        }
+        val max = e.maxOrNull() ?: 1f
+        if (max > 1e-6) for (i in e.indices) e[i] /= max
+        return e
+    }
+
+    // 앵커 매칭
+    private fun anchorScore(
+        ref: List<List<Float>>,
+        usr: List<List<Float>>,
+        tau: Int,
+        energy: FloatArray,
+        window: Int = 6,
+        topK: Int = 20
+    ): Float {
+        val idx = energy.indices.sortedByDescending { energy[it] }.take(topK).sorted()
+        var num = 0
+        var wsum = 0f
+        for (t in idx) {
+            val ut = t + tau
+            var best = -1f
+            for (dt in -window..window) {
+                val k = ut + dt
+                if (k in usr.indices) {
+                    val c = cosine(ref[t], usr[k])
+                    if (c > best) best = c
+                }
+            }
+            if (best > -0.99f) {
+                val w = (0.5f + 0.5f * energy[t])
+                wsum += w * best
+                num++
+            }
+        }
+        if (num == 0) return 0f
+        return ((wsum / num).coerceIn(-1f, 1f) + 1f) * 0.5f
+    }
+
+    // 메인 점수 계산
+    private fun scoreCosineOnly(
+        userFramesRaw: List<List<Float>>,
+        refFramesRaw: List<List<Float>>,
+        tryMirror: Boolean = true
+    ): Float {
+        if (userFramesRaw.isEmpty() || refFramesRaw.isEmpty()) return 0f
+
+        val ref = refFramesRaw.map { normalizeFrameByRoot(it) }
+        val usr = userFramesRaw.map { normalizeFrameByRoot(it) }
+        val usrMir = if (tryMirror) usr.map { mirrorWithSwap(it) } else null
+
+        fun runOne(target: List<List<Float>>): Float {
+            val tau = estimateGlobalShift(ref, target)
+            val e = motionEnergy(ref)
+            return anchorScore(ref, target, tau, e)
+        }
+
+        val s1 = runOne(usr)
+        val s2 = usrMir?.let { runOne(it) } ?: -1f
+        val s = maxOf(s1, s2)
+
+        return (s * 100f).coerceIn(0f, 100f) // 보기 좋은 0~100 점수
     }
 
 
@@ -335,7 +637,7 @@ class   MainActivity : AppCompatActivity() {
                                 videoView.pause()
                                 Log.d("Countdown", "영상 일시정지 → 결과 화면으로 이동")
 
-                                val averageScore = allFrameScores.average().toFloat()
+                                val averageScore = allFrameScores.average().toFloat()/100
                                 val total = badCount + goodCount + perfectCount
                                 val weightedScore = if (total > 0) {
                                     (badCount * 1 + goodCount * 2 + perfectCount * 3).toDouble() / total
