@@ -3,6 +3,7 @@ package com.ooplab.exercises_fitfuel
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 
@@ -25,6 +26,26 @@ class ResultActivity : AppCompatActivity() {
 
         // 확인 버튼 클릭 시 메인 화면으로 이동
         confirmButton.setOnClickListener {
+            val intent = Intent(this, MainScreenActivity::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+            finish()
+        }
+
+        val menuButton = findViewById<ImageView>(R.id.menuButton)
+        menuButton.setOnClickListener {
+            val intent = Intent(this, SettingsActivity::class.java)
+            startActivity(intent)
+        }
+
+        val settingsButton = findViewById<ImageView>(R.id.settingsButton)
+        settingsButton.setOnClickListener {
+            val intent = Intent(this, SettingsActivity::class.java)
+            startActivity(intent)
+        }
+
+        val homeButton = findViewById<ImageView>(R.id.homeButton)
+        homeButton.setOnClickListener {
             val intent = Intent(this, MainScreenActivity::class.java)
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(intent)

@@ -37,6 +37,7 @@
             android:gravity="center" />
 
         <ImageView
+            android:id="@+id/menuButton"
             android:layout_width="36dp"
             android:layout_height="wrap_content"
             android:src="@drawable/ic_menu" />
@@ -91,10 +92,10 @@
         android:layout_marginTop="16dp"
         app:layout_constraintBottom_toBottomOf="parent">
 
-        <ImageView android:src="@drawable/ic_home" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_gravity="center" />
+        <ImageView android:id="@+id/homeButton" android:src="@drawable/ic_home" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_gravity="center" />
         <ImageView android:src="@drawable/ic_trophy" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_gravity="center" />
         <ImageView android:src="@drawable/ic_book" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_gravity="center" />
-        <ImageView android:src="@drawable/ic_setting" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_gravity="center" />
+        <ImageView android:id="@+id/settingsButton" android:src="@drawable/ic_setting" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_gravity="center" />
     </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView

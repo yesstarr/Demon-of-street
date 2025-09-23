@@ -37,7 +37,26 @@ class MyPageActivity : AppCompatActivity() {
             finish()
         }
 
+        val menuButton = findViewById<ImageView>(R.id.menuButton)
+        menuButton.setOnClickListener {
+            val intent = Intent(this, SettingsActivity::class.java)
+            startActivity(intent)
         }
+
+        val settingsButton = findViewById<ImageView>(R.id.settingsButton)
+        settingsButton.setOnClickListener {
+            val intent = Intent(this, SettingsActivity::class.java)
+            startActivity(intent)
+        }
+
+        val homeButton = findViewById<ImageView>(R.id.homeButton)
+        homeButton.setOnClickListener {
+            val intent = Intent(this, MainScreenActivity::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+            finish()
+        }
+    }
 
     private fun showToast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()

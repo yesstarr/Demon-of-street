@@ -38,6 +38,8 @@
 
         <activity android:name="com.ooplab.exercises_fitfuel.MainActivity" />
 
+        <activity android:name="com.ooplab.exercises_fitfuel.SettingsActivity" />
+
         <activity android:name=".VideoPlayerActivity" />
 
     </application>

@@ -23,5 +23,16 @@ class MainScreenActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
+        val menuButton = findViewById<ImageView>(R.id.menuButton)
+        menuButton.setOnClickListener {
+            val intent = Intent(this, SettingsActivity::class.java)
+            startActivity(intent)
         }
+
+        val settingsButton = findViewById<ImageView>(R.id.settingsButton)
+        settingsButton.setOnClickListener {
+            val intent = Intent(this, SettingsActivity::class.java)
+            startActivity(intent)
+        }
+    }
 }
