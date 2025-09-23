@@ -27,5 +27,11 @@ class SettingsActivity : AppCompatActivity() {
         settingsButton.setOnClickListener {
             // Already on settings screen, do nothing
         }
+
+        val menuButton = findViewById<ImageView>(R.id.menuButton)
+        menuButton.setOnClickListener {
+            val intent = Intent(this, MyPageActivity::class.java)
+            startActivity(intent)
+        }
     }
 }

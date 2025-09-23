@@ -39,8 +39,7 @@ class MyPageActivity : AppCompatActivity() {
 
         val menuButton = findViewById<ImageView>(R.id.menuButton)
         menuButton.setOnClickListener {
-            val intent = Intent(this, SettingsActivity::class.java)
-            startActivity(intent)
+            // Already on this page, do nothing
         }
 
         val settingsButton = findViewById<ImageView>(R.id.settingsButton)

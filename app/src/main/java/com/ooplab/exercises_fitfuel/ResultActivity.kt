@@ -34,7 +34,7 @@ class ResultActivity : AppCompatActivity() {
 
         val menuButton = findViewById<ImageView>(R.id.menuButton)
         menuButton.setOnClickListener {
-            val intent = Intent(this, SettingsActivity::class.java)
+            val intent = Intent(this, MyPageActivity::class.java)
             startActivity(intent)
         }
 
