@@ -37,11 +37,7 @@ class MyPageActivity : AppCompatActivity() {
             finish()
         }
 
-        val backButton = findViewById<ImageView>(R.id.backButton)
-        backButton.setOnClickListener {
-            finish()
         }
-    }
 
     private fun showToast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()

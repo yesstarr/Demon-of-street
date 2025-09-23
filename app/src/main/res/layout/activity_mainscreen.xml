@@ -27,12 +27,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <ImageView
-            android:id="@+id/backButton"
-            android:layout_width="37dp"
-            android:layout_height="37dp"
-            android:src="@drawable/ic_back" />
-
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
