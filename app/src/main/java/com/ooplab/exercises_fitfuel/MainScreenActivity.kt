@@ -5,6 +5,8 @@ import android.content.Intent
 import android.widget.Button
 import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 
 class MainScreenActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -34,5 +36,8 @@ class MainScreenActivity : AppCompatActivity() {
             val intent = Intent(this, SettingsActivity::class.java)
             startActivity(intent)
         }
+
+        val leaderboardRecycler = findViewById<RecyclerView>(R.id.leaderboardRecycler)
+        leaderboardRecycler.layoutManager = LinearLayoutManager(this)
     }
 }
