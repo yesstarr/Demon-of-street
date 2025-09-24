@@ -2,6 +2,7 @@
     <string name="app_name">Perfect Challenge</string>
 
     <string name="small_preview_description">Small Preview</string>
+    <string name="unknown">Unknown image</string>
 
 
 </resources>

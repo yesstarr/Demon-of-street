@@ -101,7 +101,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:layout_weight="1"
-            android:src="@drawable/ic_home" />
+            android:src="@drawable/ic_home_on" />
 
         <ImageView
             android:layout_width="0dp"
