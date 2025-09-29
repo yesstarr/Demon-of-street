@@ -10,7 +10,8 @@
         android:id="@+id/playerView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:show_buffering="when_playing" />
+        app:show_buffering="when_playing"
+        app:surface_type="texture_view"/>
 
     <Button
         android:id="@+id/start_challenge_button"
