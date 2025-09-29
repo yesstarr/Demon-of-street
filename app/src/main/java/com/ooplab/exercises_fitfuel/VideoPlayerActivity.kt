@@ -3,6 +3,7 @@ package com.ooplab.exercises_fitfuel
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.MediaItem
@@ -29,6 +30,8 @@ class VideoPlayerActivity : AppCompatActivity() {
         val videoUrl = intent.getStringExtra("videoUrl") ?: return
         val thumbnailUrl = intent.getStringExtra("thumbnailUrl")
         val challengeId = intent.getStringExtra("challengeId")
+        val hideChallenge = intent.getBooleanExtra("hideChallengeButton", false)
+
 
         // ExoPlayer 초기화 및 세팅
         player = ExoPlayer.Builder(this).build().also { exoPlayer ->
@@ -44,13 +47,19 @@ class VideoPlayerActivity : AppCompatActivity() {
         }
 
         val startChallengeButton = findViewById<Button>(R.id.start_challenge_button)
-        startChallengeButton.setOnClickListener {
-            val intent = Intent(this, MainActivity::class.java)
-            intent.putExtra("challengeId", challengeId)
-            intent.putExtra("videoUrl", videoUrl)
-            startActivity(intent)
+        if (hideChallenge) {
+            startChallengeButton.visibility = View.GONE
+        } else {
+            startChallengeButton.setOnClickListener {
+                val intent = Intent(this, MainActivity::class.java).apply {
+                    putExtra("challengeId", challengeId)
+                    putExtra("videoUrl", videoUrl)
+                }
+                startActivity(intent)
+            }
         }
     }
+
 
     override fun onStop() {
         super.onStop()
