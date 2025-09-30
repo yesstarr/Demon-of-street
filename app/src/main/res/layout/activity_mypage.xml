@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/bg_radial_gradient"
-    tools:context=".ProfileActivity">
+    tools:context=".MyPageActivity">
 
     <!-- 상단 네비게이션 바 -->
     <LinearLayout
@@ -20,6 +20,14 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
+
+        <ImageView
+            android:id="@+id/backButton"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:src="@drawable/ic_back"
+            android:contentDescription="@string/back"
+            android:padding="4dp" />
 
         <TextView
             android:layout_width="0dp"

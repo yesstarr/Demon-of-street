@@ -62,7 +62,7 @@ class MyPageActivity : AppCompatActivity() {
             finish()
         }
 
-        findViewById<ImageView>(R.id.backButton).setOnClickListener { finish() }
+        findViewById<ImageView>(R.id.backButton)?.setOnClickListener { finish() }
 
         val menuButton = findViewById<ImageView>(R.id.menuButton)
         menuButton.setOnClickListener {
