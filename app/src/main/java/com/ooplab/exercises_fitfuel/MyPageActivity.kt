@@ -61,7 +61,28 @@ class MyPageActivity : AppCompatActivity() {
             startActivity(intent)
             finish()
         }
+
         findViewById<ImageView>(R.id.backButton).setOnClickListener { finish() }
+
+        val menuButton = findViewById<ImageView>(R.id.menuButton)
+        menuButton.setOnClickListener {
+            // Already on this page, do nothing
+        }
+
+        val settingsButton = findViewById<ImageView>(R.id.settingsButton)
+        settingsButton.setOnClickListener {
+            val intent = Intent(this, SettingsActivity::class.java)
+            startActivity(intent)
+        }
+
+        val homeButton = findViewById<ImageView>(R.id.homeButton)
+        homeButton.setOnClickListener {
+            val intent = Intent(this, MainScreenActivity::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+            finish()
+        }
+
     }
 
     // Firestore에서 새로 로드해 UI 갱신
