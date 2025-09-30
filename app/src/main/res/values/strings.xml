@@ -4,5 +4,12 @@
     <string name="small_preview_description">Small Preview</string>
     <string name="unknown">Unknown image</string>
 
+    <string name="back">Back</string>
+    <string name="menu">Menu</string>
+    <string name="home">Home</string>
+    <string name="trophy">Trophy</string>
+    <string name="book">Library</string>
+    <string name="settings">Settings</string>
+
 
 </resources>
