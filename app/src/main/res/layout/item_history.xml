@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="200dp"
+    android:layout_margin="8dp"
+    android:background="#EAF2FF">
+
+    <!-- 썸네일 -->
+    <ImageView
+        android:id="@+id/thumbnail"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop" />
+
+    <!-- 챌린지 제목(이름 또는 ID) -->
+    <TextView
+        android:id="@+id/tvTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="@android:color/white"
+        android:textStyle="bold"
+        android:textSize="14sp"
+        android:background="#80000000"
+        android:padding="4dp"
+        android:layout_gravity="top|start"
+        android:layout_margin="8dp" />
+
+    <!-- 도전 날짜 -->
+    <TextView
+        android:id="@+id/tvDate"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="@android:color/white"
+        android:textSize="12sp"
+        android:background="#80000000"
+        android:padding="6dp"
+        android:layout_gravity="bottom|start"
+        android:layout_margin="0dp"
+        android:elevation="1dp" />
+
+    <!-- 챌린지 점수 -->
+    <TextView
+        android:id="@+id/tvScore"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="점수: 90"
+        android:textColor="@android:color/white"
+        android:textSize="14sp"
+        android:background="#CC000000"
+        android:padding="6dp"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="38dp"
+        android:elevation="8dp" />
+
+</FrameLayout>
