@@ -64,25 +64,50 @@
             android:fontFamily="sans-serif-medium" />
     </FrameLayout>
 
-    <!-- Confirm Button -->
-    <Button
-        android:id="@+id/confirm_button"
+    <!-- Buttons Layout -->
+    <LinearLayout
+        android:id="@+id/buttons_layout"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="확인"
-        android:textSize="16sp"
-        android:textColor="#FFFFFF"
-        android:backgroundTint="#FF486C"
-        android:fontFamily="sans-serif-medium"
-        android:paddingLeft="36dp"
-        android:paddingRight="36dp"
-        android:paddingTop="12dp"
-        android:paddingBottom="12dp"
-        android:elevation="4dp"
+        android:orientation="horizontal"
         android:layout_marginTop="48dp"
         app:layout_constraintTop_toBottomOf="@id/score_box"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- Confirm Button -->
+        <Button
+            android:id="@+id/confirm_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="확인"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#FF486C"
+            android:fontFamily="sans-serif-medium"
+            android:paddingLeft="36dp"
+            android:paddingRight="36dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp"
+            android:elevation="4dp"
+            android:layout_marginEnd="16dp"/>
+
+        <!-- Share Button -->
+        <Button
+            android:id="@+id/share_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="공유"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#4CAF50"
+            android:fontFamily="sans-serif-medium"
+            android:paddingLeft="36dp"
+            android:paddingRight="36dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp"
+            android:elevation="4dp"/>
+    </LinearLayout>
 
     <!-- 하단 네비게이션 바 -->
     <LinearLayout

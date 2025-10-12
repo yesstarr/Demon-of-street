@@ -111,7 +111,7 @@ class ChallengeSession(
             navigateAfterFinalizeScore?.let { score ->
                 Log.d("ChallengeSession", "Finalize 확인 → 결과 화면으로 이동")
                 dismissWaitingDialog()
-                moveToResultActivity(score)
+                moveToResultActivity(score, savedVideoUri)
                 navigateAfterFinalizeScore = null
             }
         }
@@ -161,7 +161,7 @@ class ChallengeSession(
                     uploadHistory(score, uriNow)     // Firebase 업로드
                     pendingSaveRequested = false
                     pendingScore = null
-                    moveToResultActivity(score)
+                    moveToResultActivity(score, uriNow)
                 } else {
                     // URI가 아직 없으면 finalize를 기다렸다가 이동
                     Log.d("ChallengeSession", "URI 아직 없음 → finalize 대기 후 업로드/이동")
@@ -183,16 +183,17 @@ class ChallengeSession(
                     Log.i("ChallengeSession", "[DEL] schedule delete after finalize=true")
                     pendingDeleteRequested = true
                 }
-                moveToResultActivity(score)
+                moveToResultActivity(score, null)
             }
             .setCancelable(false)
             .show()
     }
 
-    private fun moveToResultActivity(averageScore: Float) {
-        Log.d("ChallengeSession", "ResultActivity 이동 → averageScore=$averageScore")
+    private fun moveToResultActivity(averageScore: Float, videoUri: Uri? = null) {
+        Log.d("ChallengeSession", "ResultActivity 이동 → averageScore=$averageScore, videoUri=$videoUri")
         val intent = Intent(activity, ResultActivity::class.java).apply {
             putExtra("averageScore", averageScore)
+            videoUri?.let { putExtra("savedVideoUri", it.toString()) }
         }
         activity.startActivity(intent)
     }
@@ -235,7 +236,7 @@ class ChallengeSession(
                         .setPositiveButton("결과로 이동") { _, _ ->
                             pendingSaveRequested = false
                             pendingScore = null
-                            moveToResultActivity(score)
+                            moveToResultActivity(score, null)
                         }
                         .setNegativeButton("계속 기다리기") { _, _ ->
                             showWaitingDialog()
