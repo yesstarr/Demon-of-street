@@ -49,6 +49,7 @@ class ChallengeAdapter(
             intent.putExtra("videoUrl", item.videoUrl)
             intent.putExtra("thumbnailUrl", item.thumbnailUrl) // 필요하면 표시용으로 넘김
             intent.putExtra("challengeId", item.challengeId) // challengeId 추가
+            intent.putExtra("showChallengeButton", true)   // ★ 챌린지에서는 버튼 표시
             context.startActivity(intent)
         }
 

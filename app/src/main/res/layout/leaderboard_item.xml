@@ -1,84 +1,109 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- res/layout/leaderboard_item.xml -->
 <androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/card"
     android:layout_width="match_parent"
-    android:layout_height="64dp"
+    android:layout_height="wrap_content"
     android:layout_marginStart="16dp"
     android:layout_marginEnd="16dp"
+    android:layout_marginTop="8dp"
     android:foreground="?attr/selectableItemBackground"
     app:cardUseCompatPadding="true"
     app:cardElevation="4dp"
-    app:cardCornerRadius="15dp"
+    app:cardCornerRadius="14dp"
     app:strokeColor="#FF486C"
     app:strokeWidth="1dp"
-    app:cardBackgroundColor="#F2D0FF"
-    tools:ignore="UnusedAttribute">
+    app:cardBackgroundColor="#F2D0FF">
 
-    <!-- 아이템 한 줄 레이아웃 -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp"
-        tools:background="#4DF2D0FF"> <!-- 미리보기용 연보라(30% 투명) -->
+        android:layout_height="wrap_content"
+        android:padding="10dp">
 
-        <!-- 아바타 -->
-        <!-- 없으면 values/strings.xml에 추가 or 제거 -->
+        <!-- 썸네일(작게) -->
         <ImageView
-            android:id="@+id/imageAvatar"
-            android:layout_width="41dp"
-            android:layout_height="41dp"
-            android:layout_marginStart="6dp"
+            android:id="@+id/imageThumb"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:scaleType="centerCrop"
             android:contentDescription="@string/unknown"
-        android:scaleType="centerCrop"
-        android:src="@android:drawable/sym_def_app_icon"
-        android:background="#D9D9D9"
-        android:padding="0dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintVertical_bias="0.5"
-        tools:src="@drawable/ic_launcher_foreground" />
+            android:background="#D9D9D9"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
 
-        <!-- 이름 -->
+        <!-- 닉네임 -->
         <TextView
-            android:id="@+id/textName"
+            android:id="@+id/textNickname"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
+            android:layout_marginStart="10dp"
+            android:textStyle="bold"
+            android:textColor="#222222"
+            android:textSize="15sp"
             android:singleLine="true"
             android:ellipsize="end"
-            android:textColor="#333333"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            android:fontFamily="sans-serif-medium"
-            app:layout_constraintStart_toEndOf="@id/imageAvatar"
-            app:layout_constraintEnd_toStartOf="@id/textScore"
-            app:layout_constraintTop_toTopOf="@id/imageAvatar"
-            app:layout_constraintBottom_toBottomOf="@id/imageAvatar"
-            tools:text="User 1" />
-
-        <!-- 점수 -->
-        <TextView
-            android:id="@+id/textScore"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:singleLine="true"
-            android:textColor="#333333"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            android:fontFamily="sans-serif-medium"
-            android:textAlignment="viewEnd"
+            app:layout_constraintStart_toEndOf="@id/imageThumb"
+            app:layout_constraintTop_toTopOf="@id/imageThumb"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@id/imageAvatar"
-            app:layout_constraintBottom_toBottomOf="@id/imageAvatar"
-            tools:text="700" />
+            android:text="@string/app_name" />
+
+        <!-- 챌린지명 -->
+        <TextView
+            android:id="@+id/textChallenge"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_marginTop="2dp"
+            android:textColor="#444444"
+            android:textSize="13sp"
+            android:singleLine="true"
+            android:ellipsize="end"
+            app:layout_constraintStart_toEndOf="@id/imageThumb"
+            app:layout_constraintTop_toBottomOf="@id/textNickname"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:text="challengeId" />
+
+        <!-- 지표(좋아요/조회/점수) -->
+        <LinearLayout
+            android:id="@+id/rowStats"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_marginTop="6dp"
+            android:gravity="start"
+            android:orientation="horizontal"
+            app:layout_constraintStart_toEndOf="@id/imageThumb"
+            app:layout_constraintTop_toBottomOf="@id/textChallenge"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="@id/imageThumb">
+
+            <TextView
+                android:id="@+id/textLikes"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="❤ 0"
+                android:textColor="#333333"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/textViews"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:text="▶ 0"
+                android:textColor="#333333"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/textScore"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:text="★ 0점"
+                android:textColor="#333333"
+                android:textSize="12sp" />
+        </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
-
 </androidx.cardview.widget.CardView>

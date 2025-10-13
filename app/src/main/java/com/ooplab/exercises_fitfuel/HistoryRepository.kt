@@ -9,119 +9,156 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.functions.ktx.functions
+import com.google.firebase.firestore.SetOptions
+import com.google.firebase.storage.StorageMetadata
+import com.google.firebase.firestore.FieldValue
+import com.google.android.gms.tasks.Tasks
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
+import java.io.ByteArrayOutputStream
 
 class HistoryRepository {
-    // Firestore에서 히스토리 불러오기
+
+    // 히스토리 불러오기 (마이페이지)
     fun loadPlayHistory(
         onSuccess: (List<Map<String, Any>>) -> Unit,
         onError: (Exception) -> Unit
     ) {
-        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
-        val db = FirebaseFirestore.getInstance()
-
-        Log.d("HistoryRepository", "loadPlayHistory 호출 → uid=$uid")
-
-        db.collection("users").document(uid)
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+        if (uid == null) {
+            onError(IllegalStateException("Not signed in"))
+            return
+        }
+        FirebaseFirestore.getInstance()
+            .collection("users").document(uid)
             .collection("history")
             .orderBy("playedAt", Query.Direction.DESCENDING)
             .get()
             .addOnSuccessListener { result ->
-                val historyList = result.documents.mapNotNull { doc ->
-                    doc.data?.toMutableMap()?.apply { this["playId"] = doc.id }
+                // 각 문서에 playId, publicVideoId 포함
+                val list = result.documents.mapNotNull { doc ->
+                    val data = doc.data?.toMutableMap() ?: return@mapNotNull null
+                    data["playId"] = doc.id
+                    data["publicVideoId"] = doc.getString("publicVideoId")
+                    data
                 }
-                Log.d("HistoryRepository", "히스토리 로드 성공 → count=${historyList.size}")
-                onSuccess(historyList)
+                onSuccess(list)
             }
             .addOnFailureListener { e ->
                 Log.e("HistoryRepository", "히스토리 로드 실패", e)
                 onError(e)
             }
-
     }
 
-    // 백그라운드 저장 (ResultActivity로 바로 이동 후 비동기 업로드)
+    /**
+     * 백그라운드 저장 (Result 화면으로 바로 이동하고 비동기 업로드/기록)
+     * - Storage: user_videos/{uid}/{playId}.mp4
+     * - Firestore: users/{uid}/history/{playId}
+     */
     fun saveHistoryInBackground(
         activity: AppCompatActivity,
         challengeId: String,
         score: Float,
         localVideoUri: Uri
     ) {
-        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: run {
-            Log.e("HistoryRepository", "saveHistoryInBackground: no auth uid")
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+        if (uid == null) {
+            Log.e("HistoryRepository", "saveHistoryInBackground: no auth")
             return
         }
 
-        val storage = FirebaseStorage.getInstance().reference
-        val playId = System.currentTimeMillis().toString()
-        val videoRef = storage.child("user_videos/$uid/$playId.mp4")
+        val db = FirebaseFirestore.getInstance()
+        val storage = FirebaseStorage.getInstance()
+        val playId = System.currentTimeMillis().toString() // 고유 ID (timestamp)
 
-        Log.d(
-            "HistoryRepository",
-            "saveHistoryInBackground 시작 → uid=$uid, playId=$playId, uri=$localVideoUri"
+        // ★ CHANGED: Firestore 문서 ‘선 생성’ (status=uploading)
+        val histRef = db.collection("users").document(uid).collection("history").document(playId)
+        val preData = hashMapOf(
+            "challengeId" to challengeId,
+            "score" to score.toDouble(),
+            "playedAt" to FieldValue.serverTimestamp(),
+            "status" to "uploading"  // ★ 업로드 진행중 배지용
         )
+        histRef.set(preData, SetOptions.merge())
+            .addOnFailureListener { e -> Log.w("HistoryRepository", "선기록 실패(무시 가능): ${e.message}") }
 
-        videoRef.putFile(localVideoUri)
-            .continueWithTask { task ->
-                if (!task.isSuccessful) {
-                    Log.e("HistoryRepository", "Storage 업로드 실패", task.exception)
-                    throw task.exception ?: Exception("Upload failed")
+
+        // Storage 경로 (CF publish에서 복사할 때 사용)
+        val videoPath = "user_videos/$uid/$playId.mp4"
+        val videoRef = storage.reference.child(videoPath)
+
+        // ★ CHANGED: 메타데이터 지정(일부 단말 contentType 누락 대응)
+        val metadata = StorageMetadata.Builder()
+            .setContentType("video/mp4")
+            .build()
+
+        // ★ CHANGED: 체이닝을 단일 Task로 구성
+        val task = videoRef.putFile(localVideoUri, metadata)
+            .continueWithTask { putTask ->
+                if (!putTask.isSuccessful) {
+                    throw putTask.exception ?: RuntimeException("Upload failed")
                 }
-                Log.d("HistoryRepository", "Storage 업로드 성공 → downloadUrl 요청")
+                // 업로드 성공 → videoUrl 획득
                 videoRef.downloadUrl
             }
-            .addOnSuccessListener { downloadUrl ->
-                Log.d("HistoryRepository", "downloadUrl=$downloadUrl")
+            .continueWithTask { urlTask ->
+                val downloadUrl = urlTask.result?.toString() ?: ""
+                // ★ CHANGED: Firestore merge 업데이트 (status=ready, videoUrl, videoPath)
                 val data = hashMapOf(
-                    "challengeId" to challengeId,
-                    "score" to score,
-                    "videoUrl" to downloadUrl.toString(),
-                    "playedAt" to Timestamp.now()
+                    "videoUrl" to downloadUrl,
+                    "videoPath" to videoPath,
+                    "status" to "ready"
                 )
-                Log.d("HistoryRepository", "Firestore 저장 시도 → $data")
-
-                FirebaseFirestore.getInstance()
-                    .collection("users").document(uid)
-                    .collection("history").document(playId)
-                    .set(data)
-                    .addOnSuccessListener {
-                        Log.d("HistoryRepository", "Firestore 저장 완료 → playId=$playId")
-                    }
-                    .addOnFailureListener { e ->
-                        Log.e("HistoryRepository", "Firestore 저장 실패", e)
-                    }
+                histRef.set(data, SetOptions.merge())
             }
-            .addOnFailureListener { e ->
-                Log.e("HistoryRepository", "downloadUrl 가져오기 실패", e)
-            }
-            .addOnCompleteListener {
-                val tag = "HistoryRepository"
-                Log.i(tag, "[DEL] onComplete, uri=$localVideoUri, scheme=${localVideoUri.scheme}")
-
-                runCatching {
-                    if (localVideoUri.scheme == "file") {
-                        val path = localVideoUri.path!!
-                        val f = java.io.File(path)
-                        val existedBefore = f.exists()
-                        val sizeBefore = if (existedBefore) f.length() else -1L
-                        Log.i(tag, "[DEL] file:// before exists=$existedBefore, size=$sizeBefore, path=$path")
-
-                        val ok = f.delete()
-
-                        val existedAfter = f.exists()
-                        Log.i(tag, "[DEL] file:// delete()=$ok, after exists=$existedAfter, path=$path")
+            .addOnSuccessListener {
+                Log.d("HistoryRepository", "히스토리 저장 완료(ready)")
+                // 2) ★ 썸네일 생성 → 업로드 → thumbPath merge
+                createAndUploadThumb(activity, localVideoUri, uid, playId) { thumbPath ->
+                    if (!thumbPath.isNullOrBlank()) {
+                        histRef.set(mapOf("thumbPath" to thumbPath), SetOptions.merge())
+                            .addOnSuccessListener {
+                                Log.d("HistoryRepository", "thumbPath 기록 완료: $thumbPath")
+                            }
+                            .addOnFailureListener { e ->
+                                Log.w("HistoryRepository", "thumbPath 기록 실패: ${e.message}")
+                            }
                     } else {
-                        val rows = activity.applicationContext
-                            .contentResolver
-                            .delete(localVideoUri, null, null)
-                        Log.i(tag, "[DEL] content:// delete rows=$rows, uri=$localVideoUri")
+                        Log.w("HistoryRepository", "썸네일 생성/업로드 실패 또는 null")
                     }
-                }.onFailure { er ->
-                    Log.w(tag, "[DEL] delete failed: ${er.message}", er)
                 }
             }
+            .addOnFailureListener { e ->
+                // ★ 추가: Storage 에러코드/권한 문제를 바로 확인
+                Log.e("HistoryRepository", "히스토리 저장 실패: ${e?.message}", e)
+                Log.e("HistoryRepository", "업로드 후 URL 획득 실패: ${e?.message}", e)
+            }
+
+        // ★ CHANGED: 실패/성공 로그(백그라운드에서라도 원인 파악)
+        task.addOnSuccessListener {
+            Log.d("HistoryRepository", "히스토리 저장 완료(merge): $playId")
+        }.addOnFailureListener { e ->
+            Log.e("HistoryRepository", "히스토리 저장 실패(체인): ${e.message}", e)
+            // 실패해도 UX는 유지, 사용자가 마이페이지를 열면 status=uploading 기록은 보임
+        }
+
+        // 결과 화면 즉시 이동 (기존 UX 유지)
+        activity.startActivity(
+            Intent(activity, ResultActivity::class.java).apply {
+                putExtra("challengeId", challengeId)
+                putExtra("score", score)
+                putExtra("playId", playId)
+            }
+        )
     }
 
-    // 히스토리 항목 삭제 (Storage → Firestore)
+    /**
+     * 히스토리 항목 삭제
+     * - Storage(영상/썸네일) 삭제 후 Firestore 문서 삭제
+     * - URL 기반 삭제가 실패하는 경우가 있어 경로(videoPath/ thumbPath) 우선 사용
+     */
     fun deleteHistoryItem(
         activity: AppCompatActivity,
         playId: String,
@@ -133,34 +170,141 @@ class HistoryRepository {
 
         val db = FirebaseFirestore.getInstance()
         val storage = FirebaseStorage.getInstance()
+        val docRef = db.collection("users").document(uid)
+            .collection("history").document(playId)
 
-        // Storage 참조 복원 (downloadUrl로도 참조 가능)
-        val storageRef = try {
-            storage.getReferenceFromUrl(videoUrl)
-        } catch (e: Exception) {
-            Log.w("HistoryRepository", "getReferenceFromUrl 실패: ${e.message} (Firestore만 삭제 시도)")
-            null
-        }
+        docRef.get()
+            .addOnSuccessListener { snap ->
+                val videoPath = snap.getString("videoPath")   // 예: user_videos/{uid}/{playId}.mp4
+                val thumbPath = snap.getString("thumbPath")   // 있을 수도/없을 수도
 
-        val deleteStorageTask = storageRef?.delete()
-            ?: com.google.android.gms.tasks.Tasks.forResult(null)
+                val tasks = mutableListOf<com.google.android.gms.tasks.Task<*>>()
 
-        deleteStorageTask
-            .addOnSuccessListener { Log.d("HistoryRepository", "Storage 삭제 완료: $videoUrl") }
-            .addOnFailureListener { e -> Log.w("HistoryRepository", "Storage 삭제 실패(계속 진행): ${e.message}") }
-            .continueWithTask {
-                db.collection("users").document(uid)
-                    .collection("history").document(playId)
-                    .delete()
+                // Storage 삭제 (경로 우선)
+                if (!videoPath.isNullOrBlank()) {
+                    tasks += storage.reference.child(videoPath).delete()
+                        .addOnSuccessListener { Log.d("HistoryRepository", "Storage 삭제 완료(path): $videoPath") }
+                        .addOnFailureListener { e -> Log.w("HistoryRepository", "Storage 삭제 실패(path): ${e.message}") }
+                } else {
+                    // 경로 없으면 URL로 시도 (서명/형식 문제로 실패할 수 있음)
+                    try {
+                        val refFromUrl = storage.getReferenceFromUrl(videoUrl)
+                        tasks += refFromUrl.delete()
+                            .addOnSuccessListener { Log.d("HistoryRepository", "Storage 삭제 완료(url)") }
+                            .addOnFailureListener { e -> Log.w("HistoryRepository", "Storage 삭제 실패(url): ${e.message}") }
+                    } catch (e: Exception) {
+                        Log.w("HistoryRepository", "getReferenceFromUrl 실패: ${e.message}")
+                    }
+                }
+
+                if (!thumbPath.isNullOrBlank()) {
+                    tasks += storage.reference.child(thumbPath).delete()
+                        .addOnFailureListener { /* ignore */ }
+                }
+
+                // Storage 삭제 후 Firestore 문서 삭제
+                com.google.android.gms.tasks.Tasks.whenAllComplete(tasks)
+                    .addOnCompleteListener {
+                        docRef.delete()
+                            .addOnSuccessListener {
+                                Log.d("HistoryRepository", "Firestore 삭제 완료: $playId")
+                                onComplete(true, null)
+                            }
+                            .addOnFailureListener { e ->
+                                Log.e("HistoryRepository", "Firestore 삭제 실패", e)
+                                onComplete(false, e.message)
+                            }
+                    }
             }
+            .addOnFailureListener { e ->
+                Log.w("HistoryRepository", "문서 조회 실패(문서만 삭제 시도): ${e.message}")
+                docRef.delete()
+                    .addOnSuccessListener { onComplete(true, null) }
+                    .addOnFailureListener { err -> onComplete(false, err.message) }
+            }
+    }
+
+    /**
+     * 랭킹에 올리기 (Cloud Functions 호출)
+     * - functions: publishToRanking (asia-northeast3)
+     */
+    fun publishToRanking(
+        playId: String,
+        onComplete: (ok: Boolean, publicVideoId: String?, err: String?) -> Unit
+    ) {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+        if (uid == null) { onComplete(false, null, "Not signed in"); return }
+
+        Firebase.functions("asia-northeast3")
+            .getHttpsCallable("publishToRanking")
+            .call(mapOf("playId" to playId))
+            .addOnSuccessListener { res ->
+                val data = res.data as? Map<*, *>
+                val pubId = data?.get("publicVideoId") as? String
+                if (!pubId.isNullOrBlank()) onComplete(true, pubId, null)
+                else onComplete(false, null, "No publicVideoId returned")
+            }
+            .addOnFailureListener { e ->
+                onComplete(false, null, e.message)
+            }
+    }
+
+    /**
+     * 랭킹에서 내리기 (Cloud Functions 호출)
+     * - functions: unpublishFromRanking (asia-northeast3)
+     */
+    fun unpublishFromRanking(
+        playId: String,              // 호출자 시그니처 유지(내부에선 사용 안 함)
+        publicVideoId: String,
+        onComplete: (ok: Boolean, err: String?) -> Unit
+    ) {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+        if (uid == null) { onComplete(false, "Not signed in"); return }
+
+        Firebase.functions("asia-northeast3")
+            .getHttpsCallable("unpublishFromRanking")
+            .call(mapOf("publicVideoId" to publicVideoId, "deleteFiles" to false))
             .addOnSuccessListener {
-                Log.d("HistoryRepository", "Firestore 삭제 완료: playId=$playId")
                 onComplete(true, null)
             }
             .addOnFailureListener { e ->
-                Log.e("HistoryRepository", "Firestore 삭제 실패", e)
                 onComplete(false, e.message)
             }
     }
-}
 
+    // ---------- 내부 유틸: 썸네일 생성/업로드 ----------
+    private fun createAndUploadThumb(
+        activity: AppCompatActivity,
+        localVideoUri: Uri,
+        uid: String,
+        playId: String,
+        onDone: (thumbPath: String?) -> Unit
+    ) {
+        try {
+            val retriever = MediaMetadataRetriever()
+            retriever.setDataSource(activity, localVideoUri)
+            val frame: Bitmap? = retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST)
+            retriever.release()
+
+            if (frame == null) { onDone(null); return }
+
+            val baos = ByteArrayOutputStream()
+            frame.compress(Bitmap.CompressFormat.JPEG, 85, baos)
+            val bytes = baos.toByteArray()
+
+            val path = "user_thumbs/$uid/$playId.jpg"
+            val ref = FirebaseStorage.getInstance().reference.child(path)
+            val meta = StorageMetadata.Builder().setContentType("image/jpeg").build()
+
+            ref.putBytes(bytes, meta)
+                .addOnSuccessListener { onDone(path) }
+                .addOnFailureListener { e ->
+                    Log.w("HistoryRepository", "썸네일 업로드 실패: ${e.message}")
+                    onDone(null)
+                }
+        } catch (e: Exception) {
+            Log.w("HistoryRepository", "썸네일 생성 실패: ${e.message}")
+            onDone(null)
+        }
+    }
+}
