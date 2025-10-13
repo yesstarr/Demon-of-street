@@ -66,7 +66,7 @@ class MyPageActivity : AppCompatActivity() {
 
         val menuButton = findViewById<ImageView>(R.id.menuButton)
         menuButton.setOnClickListener {
-            // Already on this page, do nothing
+            /* MyPage 현재 화면 */
         }
 
         val settingsButton = findViewById<ImageView>(R.id.settingsButton)
@@ -83,6 +83,12 @@ class MyPageActivity : AppCompatActivity() {
             finish()
         }
 
+    }
+
+    // ★ CHANGED: 결과 화면 다녀와도 갱신되도록 onResume에서 재로딩
+    override fun onResume() {
+        super.onResume()
+        reloadHistory()
     }
 
     // Firestore에서 새로 로드해 UI 갱신
@@ -104,7 +110,7 @@ class MyPageActivity : AppCompatActivity() {
         )
     }
 
-    // 썸네일 길게 누르면 삭제 다이얼로그(아이콘 포함) → 삭제/취소
+    // 썸네일 길게 누르면 삭제/랭킹 메뉴
     private fun attachLongPressToRecycler() {
         val detector = GestureDetectorCompat(
             this,
@@ -120,22 +126,78 @@ class MyPageActivity : AppCompatActivity() {
                     val item = items[pos]
                     val playId = item["playId"] as? String
                     val videoUrl = item["videoUrl"] as? String
+                    val publicVideoId = item["publicVideoId"] as? String // ★ NEW
                     if (playId.isNullOrBlank() || videoUrl.isNullOrBlank()) return
 
+                    // ★ CHANGED: inRanking 플래그로 메뉴 토글
+                    val inRanking = (item["inRanking"] as? Boolean) == true // ★ CHANGED
+                    val options = if (inRanking)
+                        arrayOf("삭제", "랭킹에서 내리기")
+                    else
+                        arrayOf("삭제", "랭킹에 올리기")
+
                     AlertDialog.Builder(this@MyPageActivity)
-                        .setTitle("이 영상을 삭제할까요?")
-                        .setMessage("마이페이지에서 삭제됩니다.")
-                        .setIcon(android.R.drawable.ic_menu_delete)
-                        .setPositiveButton("삭제") { _, _ ->
-                            historyRepo.deleteHistoryItem(
-                                activity = this@MyPageActivity,
-                                playId = playId,
-                                videoUrl = videoUrl
-                            ) { ok, err ->
-                                if (ok) reloadHistory() else showToast("삭제 실패: $err")
+                        .setTitle("메뉴")
+                        .setItems(options) { _, which ->
+                            when (options[which]) {
+                                "삭제" -> {
+                                    // ★ ADDED: 삭제 재확인 다이얼로그
+                                    val msg = if (inRanking) {
+                                        "이 영상은 랭킹에도 등록되어 있어요.\n정말 삭제할까요?"
+                                    } else {
+                                        "정말 삭제할까요?"
+                                    }
+
+                                    AlertDialog.Builder(this@MyPageActivity)
+                                        .setTitle("삭제 확인")
+                                        .setMessage(msg)
+                                        .setPositiveButton("삭제") { _, _ ->
+                                            // ★ CHANGED: 실제 삭제는 확인 후 수행
+                                            historyRepo.deleteHistoryItem(
+                                                activity = this@MyPageActivity,
+                                                playId = playId,
+                                                videoUrl = videoUrl
+                                            ) { ok, err ->
+                                                if (ok) {
+                                                    showToast("삭제했어요")
+                                                    reloadHistory()
+                                                } else {
+                                                    showToast("삭제 실패: $err")
+                                                }
+                                            }
+                                        }
+                                        .setNegativeButton("취소", null)
+                                        .show()
+                                }
+                                "랭킹에 올리기" -> {
+                                    historyRepo.publishToRanking(
+                                        playId = playId
+                                    ) { ok, vid, err ->
+                                        if (ok) {
+                                            showToast("랭킹에 등록했어요!")
+                                            reloadHistory() // inRanking/publicVideoId 반영
+                                        } else showToast("등록 실패: $err")
+                                    }
+                                }
+                                "랭킹에서 내리기" -> {
+                                    // ★ CHANGED: 안전 가드 (publicVideoId 없으면 오류 메시지)
+                                    if (publicVideoId.isNullOrBlank()) {
+                                        showToast("이미 랭킹에서 내려간 항목이에요.")
+                                        reloadHistory()
+                                        return@setItems
+                                    }
+                                    historyRepo.unpublishFromRanking(
+                                        playId = playId,
+                                        publicVideoId = publicVideoId
+                                    ) { ok, err ->
+                                        if (ok) {
+                                            showToast("랭킹에서 내렸어요")
+                                            reloadHistory()
+                                        } else showToast("실패: $err")
+                                    }
+                                }
                             }
                         }
-                        .setNegativeButton("취소", null)
                         .show()
                 }
 
@@ -170,7 +232,7 @@ class MyPageActivity : AppCompatActivity() {
                     val intent = Intent(this@MyPageActivity, VideoPlayerActivity::class.java).apply {
                         putExtra("videoUrl", videoUrl)
                         putExtra("challengeId", challengeId)
-                        putExtra("hideChallengeButton", true)
+                        putExtra("showChallengeButton", false)
                     }
                     startActivity(intent)
                     return true

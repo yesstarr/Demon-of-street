@@ -55,4 +55,19 @@
         android:layout_marginBottom="38dp"
         android:elevation="8dp" />
 
+    <!-- 랭킹 등록 상태 배지 -->
+    <TextView
+        android:id="@+id/badgeRanking"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="RANKING"
+        android:textColor="@android:color/white"
+        android:textStyle="bold"
+        android:textSize="10sp"
+        android:padding="4dp"
+        android:background="#AAFF486C"
+        android:elevation="4dp"
+        android:visibility="gone"
+        android:layout_margin="8dp"
+        android:layout_gravity="top|end" />
 </FrameLayout>

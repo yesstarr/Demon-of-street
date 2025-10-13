@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "com.ooplab.exercises_fitfuel"
-        minSdk = 30
+        minSdk = 29
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -54,6 +54,12 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore-ktx")
 
     implementation("com.google.firebase:firebase-storage-ktx")
+
+    // ★ 추가: Cloud Functions 호출용
+    implementation("com.google.firebase:firebase-functions-ktx")
+
+    // ★ 권장: Tasks에 .await() 쓰려면 코루틴-플레이서비스
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
     // Kotlin 코루틴
     implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
