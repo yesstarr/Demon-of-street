@@ -33,35 +33,15 @@ class AuthRepository {
             }
     }
 
-    // 회원가입 기능
+    // 회원가입 기능 (✅ 인증 계정 생성만 수행)
     fun signUp(nickname: String, name: String, email: String, password: String, onResult: (Boolean, String?) -> Unit) {
-        db.collection("users")
-            .whereEqualTo("nickname", nickname)
-            .get()
-            .addOnSuccessListener { querySnapshot ->
-                if (querySnapshot.isEmpty) {
-                    auth.createUserWithEmailAndPassword(email, password)
-                        .addOnCompleteListener { task ->
-                            if (task.isSuccessful) {
-                                val userId = auth.currentUser?.uid ?: ""
-                                val user = hashMapOf(
-                                    "nickname" to nickname,
-                                    "name" to name,
-                                    "email" to email,
-                                    "grade" to "브론즈"
-                                )
-                                db.collection("users").document(userId).set(user)
-                                onResult(true, null)
-                            } else {
-                                onResult(false, task.exception?.message)
-                            }
-                        }
+        auth.createUserWithEmailAndPassword(email, password)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    onResult(true, null)
                 } else {
-                    onResult(false, "이미 사용 중인 닉네임입니다.")
+                    onResult(false, task.exception?.message)
                 }
-            }
-            .addOnFailureListener { e ->
-                onResult(false, e.message)
             }
     }
 

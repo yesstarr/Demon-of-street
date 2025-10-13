@@ -54,6 +54,10 @@
                 android:resource="@xml/provider_paths" />
         </provider>
 
+        <activity
+            android:name=".LeaderboardActivity"
+            android:exported="false" />
+
     </application>
 
 </manifest>

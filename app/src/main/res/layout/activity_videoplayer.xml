@@ -25,6 +25,7 @@
         android:textColor="#FFFFFF"
         android:textSize="14sp"
         android:backgroundTint="#FF7F98"
-        android:elevation="2dp" />
+        android:elevation="2dp"
+        android:visibility="gone" />  <!-- ★ 기본은 숨김 -->
 
 </androidx.constraintlayout.widget.ConstraintLayout>
