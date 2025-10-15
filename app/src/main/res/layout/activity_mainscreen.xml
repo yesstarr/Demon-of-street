@@ -92,28 +92,74 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/btnPracticeMode">
 
-        <!-- 리더보드 전용 화면으로 이동 -->
+        <!-- Points Button -->
         <LinearLayout
-            android:id="@+id/btnOpenLeaderboard"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="match_parent"
+            android:layout_weight="1"
             android:background="@drawable/rounded_button_pink"
             android:gravity="center"
-            android:orientation="horizontal"
-            android:padding="12dp">
+            android:orientation="vertical"
+            android:layout_marginEnd="8dp">
 
             <ImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_trophy" />
+                android:src="@drawable/ic_points" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/btn_ranking"
-                android:textStyle="bold"
-                android:layout_marginStart="8dp"
-                android:contentDescription="@string/btn_ranking"/>
+                android:text="Points"
+                android:textColor="#FFFFFF"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+        <!-- Speed Button -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@drawable/rounded_button_pink"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_speed" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Speed"
+                android:textColor="#FFFFFF"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+        <!-- Level Button -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@drawable/rounded_button_pink"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:layout_marginStart="8dp">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_level" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Level"
+                android:textColor="#FFFFFF"
+                android:textSize="10sp" />
         </LinearLayout>
     </LinearLayout>
 
@@ -159,6 +205,7 @@
             android:src="@drawable/ic_home_on" />
 
         <ImageView
+            android:id="@+id/btnOpenLeaderboard"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_gravity="center"

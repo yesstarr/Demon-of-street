@@ -48,10 +48,13 @@ class MainScreenActivity : AppCompatActivity() {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
 
-        // ★랭킹 전용 화면으로 이동
-        findViewById<LinearLayout>(R.id.btnOpenLeaderboard).setOnClickListener {
+        // 1. Bottom Nav Bar의 리더보드 버튼 (ImageView)
+        val btnOpenLeaderboardIcon = findViewById<ImageView>(R.id.btnOpenLeaderboard)
+        btnOpenLeaderboardIcon?.setOnClickListener {
             startActivity(Intent(this, LeaderboardActivity::class.java))
         }
+
+        
 
         // 랭킹 RecyclerView (미니 랭킹)
         val rv = findViewById<RecyclerView>(R.id.leaderboardRecycler)
