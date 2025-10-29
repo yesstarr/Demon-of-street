@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_radial_gradient"
+    android:background="#FFFDD0"
     tools:context=".MyPageActivity">
 
     <!-- 상단 네비게이션 바 -->

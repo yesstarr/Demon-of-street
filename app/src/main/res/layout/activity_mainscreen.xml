@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_main_screen"
+    android:background="#FFFDD0"
     tools:context=".MainScreenActivity">
 
     <!-- Top Nav Bar -->
@@ -41,7 +41,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
         android:fontFamily="sans-serif-medium"
-        android:text="Welcome User!"
+        android:text="Make your Move!"
         android:textColor="#FF486C"
         android:textSize="25sp"
         android:textStyle="bold"
