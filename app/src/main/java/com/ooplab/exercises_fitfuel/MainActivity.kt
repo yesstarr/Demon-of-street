@@ -79,6 +79,7 @@ class   MainActivity : AppCompatActivity() {
     private var perfectCount = 0
     private var mediaPlayer: android.media.MediaPlayer? = null // 추가
     private lateinit var slowMotionButton: Button //추가
+    private var currentPlaybackSpeed: Float = 1.0f // 추가: 현재 재생 속도 (기본 1.0x)
 
     private lateinit var videoRecorder: VideoRecorder
     private var savedVideoUri: Uri? = null
@@ -158,7 +159,7 @@ class   MainActivity : AppCompatActivity() {
         countdownText = findViewById(R.id.countdown_text)
 
         videoView = findViewById(R.id.videoView)
-        slowMotionButton = findViewById(R.id.slowMotionButton) //추가
+        //slowMotionButton = findViewById(R.id.slowMotionButton) //추가
         yuvToRgbConverter = YuvToRgbConverter(this)
 
 
@@ -175,7 +176,8 @@ class   MainActivity : AppCompatActivity() {
         Log.d("CrashDebug", "intent: $intent")
         challengeId = intent.getStringExtra("challengeId") ?: "chicken_banana"
         val videoUrl = intent.getStringExtra("videoUrl")
-        Log.d("CrashDebug", "challengeId: $challengeId, videoUrl: $videoUrl")
+        currentPlaybackSpeed = intent.getFloatExtra("selected_speed", 1.0f)
+        Log.d("CrashDebug", "challengeId: $challengeId, videoUrl: $videoUrl, speed: $currentPlaybackSpeed")
 
 
         // ChallengeSession 초기화
@@ -198,8 +200,12 @@ class   MainActivity : AppCompatActivity() {
             videoView.setOnPreparedListener { mp ->
                 Log.d("VideoDebug", "onPrepared 호출됨! duration=${mp.duration}")
                 mediaPlayer = mp // 추가
+                challengeSession.setMediaPlayer(mp)
 
-                mp.isLooping = true
+//                mp.pause()
+//                Log.d("VideoDebug", "영상 자동 재생 방지를 위해 일시 정지 처리 완료.")
+
+                mp.isLooping = false // 자동루핑 비활성화
                 videoDurationMs = mp.duration
                 videoReady = true
                 Log.d("VideoDebug", "영상 준비 완료, 길이 = $videoDurationMs ms")
@@ -207,24 +213,37 @@ class   MainActivity : AppCompatActivity() {
                 // ChallengeSession에도 duration 전달
                 challengeSession.setVideoDuration(videoDurationMs)
 
-                // 카운트다운이 이미 끝났다면 즉시 실행
-                if (poseTrackingEnabled) {
-                    // 점수 계산 람다를 넘겨줌
-                    // ★ CHANGED: 평균을 0~1로 넘겨주도록 보정
-                    challengeSession.start {
-                        if (allFrameScores.isNotEmpty()) {
-                            (allFrameScores.sum() / allFrameScores.size) / 100f  // ★ CHANGED
-                        } else 0f
-                    }
+                // ★ NEW: 준비 완료 시 고정된 배속을 설정합니다.
+//                setInitialPlaybackSpeed(currentPlaybackSpeed)
+
+                // ★★★ 수정 부분: mp.setOnCompletionListener를 handleVideoCompletion으로 연결 ★★★
+                videoView.setOnCompletionListener { completionMp ->
+                    //challengeSession.handleVideoLooping()
+                    challengeSession.handleVideoLooping()
                 }
+
+//                slowMotionButton.setOnClickListener {
+//                    setPlaybackSpeed(0.25f) // 0.25배속으로 토글 시작
+//                }
+
+                // 카운트다운이 이미 끝났다면 즉시 실행
+//                if (poseTrackingEnabled) {
+//                    // 점수 계산 람다와 고정된 배속을 넘겨줌
+//                    // ★ CHANGED: challengeSession.start() 호출 시 고정 배속을 전달해야 합니다.
+//                    challengeSession.start(
+//                        averageScoreProvider = {
+//                            if (allFrameScores.isNotEmpty()) {
+//                                (allFrameScores.sum() / allFrameScores.size) / 100f
+//                            } else 0f
+//                        },
+//                        speed = currentPlaybackSpeed // ★ 고정 배속 전달 ★
+//                    )
+//                }
             }
 
             videoView.setOnErrorListener { _, what, extra ->
                 Log.e("VideoDebug", "영상 재생 중 오류 발생: what=$what, extra=$extra")
                 false
-            }
-            slowMotionButton.setOnClickListener {
-                setPlaybackSpeed(0.25f) // 0.25배속으로 토글 시작
             }
         }
 
@@ -277,36 +296,73 @@ class   MainActivity : AppCompatActivity() {
 
     }
 
-    private fun setPlaybackSpeed(slowSpeed: Float) {
+    // ★ NEW: 시작 시 1회만 호출되어 고정된 배속을 설정하는 함수
+    private fun setInitialPlaybackSpeed(speed: Float) {
         val mp = mediaPlayer
         if (mp != null) {
             try {
-                // Android 6.0(API 23) 이상에서만 지원되므로 버전 체크 필요
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                    // 현재 속도 확인
-                    val currentSpeed = mp.playbackParams.speed
-                    // 1.0x <-> slowSpeed 토글
-                    val newSpeed = if (currentSpeed != 1.0f) 1.0f else slowSpeed
-
                     val params = mp.playbackParams
-                    params.speed = newSpeed
+                    params.speed = speed
                     mp.playbackParams = params
+                    Log.d("VideoDebug", "Initial speed set to ${speed}x")
 
-                    // 버튼 텍스트 업데이트
-                    val text = if (newSpeed == slowSpeed) "1.0x 일반 속도" else "${slowSpeed}x 느리게"
-                    slowMotionButton.text = text
-                    Toast.makeText(this, "${newSpeed}배속으로 재생합니다.", Toast.LENGTH_SHORT).show()
+                    // ChallengeSession에도 초기 배속을 전달해야 합니다.
+                    // (ChallengeSession.kt 수정 후 start() 호출 전에 처리)
+
                 } else {
-                    Toast.makeText(this, "느리게 재생은 Android 6.0 이상에서 지원됩니다.", Toast.LENGTH_LONG).show()
+                    Log.w("VideoDebug", "느리게 재생은 Android 6.0 이상에서 지원됩니다. 1.0x로 재생됩니다.")
                 }
             } catch (e: Exception) {
-                Log.e("VideoDebug", "재생 속도 변경 오류: ${e.message}")
-                Toast.makeText(this, "재생 속도 변경 중 오류가 발생했습니다.", Toast.LENGTH_SHORT).show()
+                Log.e("VideoDebug", "초기 재생 속도 설정 오류: ${e.message}")
             }
-        } else {
-            Toast.makeText(this, "영상을 불러오는 중입니다.", Toast.LENGTH_SHORT).show()
         }
     }
+
+//    private fun setPlaybackSpeed(slowSpeed: Float) {
+//        val mp = mediaPlayer
+//        if (mp != null) {
+//            try {
+//                // Android 6.0(API 23) 이상에서만 지원되므로 버전 체크 필요
+//                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+//                    // 현재 속도 확인
+//                    val currentSpeed = mp.playbackParams.speed
+//                    // 1.0x <-> slowSpeed 토글
+//                    val newSpeed = if (currentSpeed != 1.0f) 1.0f else slowSpeed
+//
+//                    Log.w("VideoDebug", "SPEED_CHANGE BEFORE: currentPos=${mp.currentPosition}, isPlaying=${mp.isPlaying}")
+//
+//                    val params = mp.playbackParams
+//                    params.speed = newSpeed
+//                    mp.playbackParams = params
+//
+//                    Log.w("VideoDebug", "SPEED_CHANGE AFTER: newSpeed=${newSpeed}, isPlaying=${mp.isPlaying}")
+//
+//                    currentPlaybackSpeed = newSpeed // 속도 변수 갱신
+//                    challengeSession.setCurrentPlaybackSpeed(newSpeed) // ChallengeSession에도 전달
+//
+//                    // ★★★ 핵심 수정: 속도 변경 후 영상을 재개해야 변경된 속도가 적용됩니다. ★★★
+//                    if (!mp.isPlaying) {
+//                        mp.start()
+//                    }
+//
+//                    // 버튼 텍스트 업데이트
+//                    val text = if (newSpeed == slowSpeed) "1.0x 일반 속도" else "${slowSpeed}x 느리게"
+//                    slowMotionButton.text = text
+//                    Toast.makeText(this, "${newSpeed}배속으로 재생합니다.", Toast.LENGTH_SHORT).show()
+//                } else {
+//                    Toast.makeText(this, "느리게 재생은 Android 6.0 이상에서 지원됩니다.", Toast.LENGTH_LONG).show()
+//                }
+//            } catch (e: Exception) {
+//                Log.e("VideoDebug", "재생 속도 변경 오류: ${e.message}")
+//                Toast.makeText(this, "재생 속도 변경 중 오류가 발생했습니다.", Toast.LENGTH_SHORT).show()
+//            }
+//        } else {
+//            Toast.makeText(this, "영상을 불러오는 중입니다.", Toast.LENGTH_SHORT).show()
+//        }
+//    }
+
+
 
     //다른 액티비티에서 돌아올 때
     override fun onResume() {
@@ -1108,17 +1164,20 @@ class   MainActivity : AppCompatActivity() {
                     poseTrackingEnabled = true
 
                     if (videoReady) {
-                        // ★ CHANGED: 평균을 0~1로 넘겨주도록 보정
-                        challengeSession.start {
-                            if (allFrameScores.isNotEmpty()) {
-                                (allFrameScores.sum() / allFrameScores.size) / 100f  // ★ CHANGED
-                            } else 0f
-                        }
+                        // ★ MODIFIED: challengeSession.start() 호출 시 고정 배속을 전달합니다.
+                        challengeSession.start(
+                            averageScoreProvider = {
+                                if (allFrameScores.isNotEmpty()) {
+                                    (allFrameScores.sum() / allFrameScores.size) / 100f
+                                } else 0f
+                            },
+                            speed = currentPlaybackSpeed // ★ NEW: 고정 배속 값 전달 ★
+                        )
                     } else {
                         Log.w("VideoDebug", "카운트다운 끝났지만 영상 준비 중...")
                     }
 
-                    // 세션 종료 타이밍에 맞춰 포즈 추적 끄기
+                    // 세션 종료 타이밍에 맞춰 포즈 추적 끄기 (참고: 실제 세션 종료는 ChallengeSession의 타이머가 처리함)
                     Handler(mainLooper).postDelayed({
                         poseTrackingEnabled = false
                     }, videoDurationMs.toLong() + 200)
@@ -1180,13 +1239,19 @@ class   MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        isShuttingDown = true                 // ★ NEW
+        isShuttingDown = true
         countdownHandler?.removeCallbacksAndMessages(null)
         cameraExecutor.shutdown()
         poseLandmarker.close()
-        try { yuvToRgbConverter.release() } catch (_: Throwable) {}   // ★ NEW
-        rgbBitmap = null                                               // ★ NEW
+        try { yuvToRgbConverter.release() } catch (_: Throwable) {}
+        rgbBitmap = null
+
+        // ★ NEW: ChallengeSession의 리소스 정리 호출
+        challengeSession.release()
+
+        Log.d("MainActivity", "Activity and resources released.")
     }
+
 
     @Suppress("DEPRECATION")
 // ★ CHANGED(from newmainactivity)
@@ -1270,6 +1335,7 @@ class   MainActivity : AppCompatActivity() {
             }
         }
     }
+
 }
 
 // ★ NEW(from newmainactivity): 채점 가중/보정 설정 (top-level object)

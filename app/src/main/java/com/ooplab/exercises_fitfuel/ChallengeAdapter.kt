@@ -11,14 +11,17 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import kotlin.jvm.java
+// import kotlin.jvm.java // 이 import는 불필요하여 제거합니다.
 
 class ChallengeAdapter(
     private val context: Context,
     private val challengeList: List<ChallengeMeta>
 ) : RecyclerView.Adapter<ChallengeAdapter.ChallengeViewHolder>() {
 
-    // ViewHolder 클래스 → item_challenge.xml의 View 참조를 저장
+    // ★ NEW: 챌린지 시작 버튼 클릭 리스너 정의 (상위 액티비티가 처리할 로직)
+    var onStartChallengeClickListener: ((ChallengeMeta) -> Unit)? = null
+
+    // ViewHolder 클래스 → item_challenge.xml의 View 참조를 저장r
     inner class ChallengeViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val thumbnailImageView: ImageView = itemView.findViewById(R.id.thumbnailImageView)
         val titleTextView: TextView = itemView.findViewById(R.id.titleTextView)
@@ -38,27 +41,34 @@ class ChallengeAdapter(
         // 챌린지 제목 설정
         holder.titleTextView.text = item.title
 
-        // 썸네일 이미지 Glide로 표시 (loadThumbnailUrl() 호출 필요 없음!)
+        // 썸네일 이미지 Glide로 표시
         Glide.with(context)
             .load(item.thumbnailUrl)
             .into(holder.thumbnailImageView)
 
-        // 썸네일 클릭 시 VideoPlayerActivity로 이동
+        // 썸네일 클릭 시 VideoPlayerActivity로 이동 (배속 정보와 무관하므로 기존 로직 유지)
         holder.thumbnailImageView.setOnClickListener {
             val intent = Intent(context, VideoPlayerActivity::class.java)
             intent.putExtra("videoUrl", item.videoUrl)
-            intent.putExtra("thumbnailUrl", item.thumbnailUrl) // 필요하면 표시용으로 넘김
-            intent.putExtra("challengeId", item.challengeId) // challengeId 추가
-            intent.putExtra("showChallengeButton", true)   // ★ 챌린지에서는 버튼 표시
+            intent.putExtra("thumbnailUrl", item.thumbnailUrl)
+            intent.putExtra("challengeId", item.challengeId)
+            intent.putExtra("showChallengeButton", true)
             context.startActivity(intent)
         }
 
-        // "도전하기" 버튼 클릭 시 MainActivity로 이동
+        // "도전하기" 버튼 클릭 시 처리
         holder.startChallengeButton.setOnClickListener {
+            // ★ MODIFIED: MainActivity로 직접 이동하는 대신, 외부 리스너(액티비티) 호출
+            // 선택된 챌린지 정보(item)를 인자로 넘겨줍니다.
+            onStartChallengeClickListener?.invoke(item)
+
+            /*
+            // [제거됨] 기존의 MainActivity로 직접 이동하는 코드는 제거됩니다.
             val intent = Intent(context, MainActivity::class.java)
             intent.putExtra("challengeId", item.challengeId)
             intent.putExtra("videoUrl", item.videoUrl)
             context.startActivity(intent)
+            */
         }
     }
 
