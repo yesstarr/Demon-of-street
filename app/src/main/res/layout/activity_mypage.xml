@@ -127,16 +127,16 @@
                 android:id="@+id/logoutButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:background="@drawable/rounded_button"
+                app:backgroundTint="?attr/colorPrimary"
+                android:elevation="2dp"
+                android:paddingStart="24dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="24dp"
+                android:paddingBottom="8dp"
                 android:text="Logout"
                 android:textColor="#FFFFFF"
-                android:textSize="14sp"
-                android:backgroundTint="#FF5648"
-                android:paddingStart="24dp"
-                android:paddingEnd="24dp"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp"
-                android:background="@drawable/rounded_button"
-                android:elevation="2dp" />
+                android:textSize="14sp" />
         </LinearLayout>
 
     </LinearLayout>
