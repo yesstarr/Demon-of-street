@@ -67,7 +67,7 @@
         android:layout_height="0dp"
         android:background="@android:color/transparent"
         app:layout_constraintTop_toBottomOf="@id/groupSort"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/bottomNavBar"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 

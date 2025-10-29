@@ -21,6 +21,7 @@ import com.google.firebase.functions.ktx.functions
 import androidx.activity.result.contract.ActivityResultContracts
 import android.os.Handler
 import android.os.Looper
+import android.widget.ImageView
 
 class LeaderboardActivity : AppCompatActivity() {
 
@@ -60,6 +61,13 @@ class LeaderboardActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_leaderboard)
+
+        findViewById<ImageView>(R.id.homeButton).setOnClickListener {
+            startActivity(Intent(this, MainScreenActivity::class.java))
+        }
+        findViewById<ImageView>(R.id.settingsButton).setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
 
         rv = findViewById(R.id.rvLeaderboard)
         progress = findViewById(R.id.progress)
