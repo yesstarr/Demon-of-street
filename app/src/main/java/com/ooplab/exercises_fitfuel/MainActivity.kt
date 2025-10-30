@@ -53,6 +53,16 @@ import java.io.InputStreamReader
 
 
 class   MainActivity : AppCompatActivity() {
+    // === currentRefEnergy()용 참조 캐시 ===
+    private lateinit var refN: List<List<Float>>
+    private lateinit var refEnergyPose: FloatArray
+    private lateinit var refEnergyAngle: FloatArray
+
+    // 점수 스무딩 상태
+    private var smoothedScore: Float? = null
+
+    // 어깨폭 러닝 값(지금은 리셋만 하지만 멤버는 필요)
+    private var runShoulderW: Float? = null
     private lateinit var videoView: VideoView
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var previewView: PreviewView
@@ -88,7 +98,8 @@ class   MainActivity : AppCompatActivity() {
     private var isRecording = false
 
     private lateinit var challengeSession: ChallengeSession
-
+    // 정지 탐지/표시 브레이크 임계
+    private val STATIC_ENERGY_GATE = 0.04f  // 예전 동작 원하면 0.08f로
     private var countdownHandler: Handler? = null
     private var countdownRunnable: Runnable? = null
 
@@ -132,7 +143,7 @@ class   MainActivity : AppCompatActivity() {
     }
 
     private data class Vec3(val x: Float, val y: Float, val z: Float)
-
+    private fun lerp(a: Float, b: Float, t: Float) = a + (b - a) * t
     private fun sub(a: Vec3, b: Vec3) = Vec3(a.x - b.x, a.y - b.y, a.z - b.z)
     private fun toVec3(t: Triple<Float, Float, Float>) = Vec3(t.first, t.second, t.third)
     private fun dot(a: Vec3, b: Vec3) = (a.x*b.x + a.y*b.y + a.z*b.z)
@@ -199,7 +210,7 @@ class   MainActivity : AppCompatActivity() {
                 Log.d("VideoDebug", "onPrepared 호출됨! duration=${mp.duration}")
                 mediaPlayer = mp // 추가
 
-                mp.isLooping = true
+                mp.isLooping = false
                 videoDurationMs = mp.duration
                 videoReady = true
                 Log.d("VideoDebug", "영상 준비 완료, 길이 = $videoDurationMs ms")
@@ -237,12 +248,17 @@ class   MainActivity : AppCompatActivity() {
                 // ✅ 132차원 -> 99차원으로 통일
                 Log.d("CrashDebug", "loadCsvFromFirebaseStream success")
                 referenceFrames = frames132.map { stripVisibilityKeepXYZ(it) }
-                Log.d("CSV", "원본 포즈 ${referenceFrames.size}프레임(visibility 제거, xyz 99)")
 
-                // ★ NEW(from newmainactivity): 정규화 레퍼런스 사전 계산
+// ✅ 정규화 먼저
                 referenceFramesN = referenceFrames
                     .mapNotNull { sanitizeXYZ(it) }
-                    .map { normalizeFrameByRoot(it) }
+                    .map { normalizeFrameByRoot(it, useShoulderEma = false) } // ← 변경
+
+// ✅ 그 다음 캐시 세팅
+                refN = referenceFramesN
+                refEnergyPose = motionEnergy(refN)
+                val refAngles: List<List<Float>> = refN.map { angleFeature(it).toList() }
+                refEnergyAngle = motionEnergy(refAngles)
 
                 // 이제 준비가 되었으니 카메라 + 카운트다운 시작
                 recentFrames.clear()         // 이전 동작 초기화
@@ -499,38 +515,44 @@ class   MainActivity : AppCompatActivity() {
             .setBaseOptions(baseOptions)
             .setRunningMode(RunningMode.LIVE_STREAM)
             .setResultListener { result, _ ->
-                if (!poseTrackingEnabled) return@setResultListener
+                val now = SystemClock.uptimeMillis()
 
-                val now = System.currentTimeMillis()
+                // 현재 비디오 위치의 참조 모션 에너지(0~1)
+                fun currentRefEnergy(): Float {
+                    if (!::refN.isInitialized || refN.isEmpty()) return 0f
+                    val fps   = 30f
+                    val posMs = try { videoView.currentPosition } catch (_: Throwable) { 0 }
+                    val idx   = (((posMs.coerceAtLeast(0) / 1000f) * fps).toInt())
+                        .coerceIn(0, refN.lastIndex)
+                    val ePose = if (::refEnergyPose.isInitialized) refEnergyPose.getOrElse(idx){ 0f } else 0f
+                    val eAng  = if (::refEnergyAngle.isInitialized) refEnergyAngle.getOrElse(idx){ 0f } else 0f
+                    return if (ePose > eAng) ePose else eAng   // maxOf(ePose, eAng)와 동일
+                }
+
                 val landmarkList = result.landmarks().firstOrNull()
-
                 if (landmarkList != null) {
                     // 원시 점수 계산(0~100)
                     lastPoseTime = now
-                    val raw = calculateScore(landmarkList) // ★ CHANGED: 새 calculateScore로 교체(아래)
+                    val raw = calculateScore(landmarkList)
 
-                    // ★ NEW(from newmainactivity): 점수 스무딩/정지 처리
-                    val longGap = (now - lastDetectMs) > reinitGapMs
-                    if (!hasSeenPerson || longGap) {
-                        hasSeenPerson = true
-                        currentScore = raw
-                        lastScoreUpdateMs = now
-                    } else {
-                        val (motionNow, stillLocked) = updateMotionAndStill(now)
-                        currentScore = smoothAndClampScore(raw, motionNow, now, stillLocked)
-                    }
+                    // 스무딩/정지 처리
+                    val (motionNow, stillLocked) = updateMotionAndStill(now)
+                    val refE = currentRefEnergy()                      // ★ 추가
+                    val lockOnlyWhenStatic = stillLocked && refE < STATIC_ENERGY_GATE   // ★ 추가
+                    currentScore = smoothAndClampScore(raw, motionNow, now, lockOnlyWhenStatic, refE) // ★ 5번째 인자
+
+                    allFrameScores.add(currentScore)  // ★ raw 대신 currentScore 기록
                     lastDetectMs = now
                 } else {
-                    // ✅ 포즈 미검출: 지난 초만큼 3점씩 감점
-                    val dtSec = ((now - lastScoreUpdateMs).coerceAtLeast(16L)) / 1000f
-                    val drop = noDetectDecayPerSec * dtSec
-                    val base = currentScore
-                    currentScore = (base - drop).coerceAtLeast(0f)
+                    // 미검출 시: refE 기반으로 자연 하강(원래 방식 유지하고 싶으면 아래 블록은 생략 가능)
+                    val refE = currentRefEnergy()
+                    currentScore = smoothAndClampScore(0f, 0f, now, true, refE)
                     lastScoreUpdateMs = now
                 }
 
+
                 // ✅ 화면 표시 & 기록(감지/미감지 모두 동일 로직!)
-                allFrameScores.add(currentScore)
+
                 runOnUiThread {
                     scoreTextView.text = "${currentScore.toInt()}"
                     when {
@@ -539,7 +561,11 @@ class   MainActivity : AppCompatActivity() {
                         else               -> scoreTextView.setTextColor(Color.BLUE)
                     }
                 }
+                // 현재 비디오 위치에 해당하는 참조 모션 에너지(0~1)
+
+
             }
+
             .build()
 
         poseLandmarker = PoseLandmarker.createFromOptions(this, options)
@@ -612,44 +638,47 @@ class   MainActivity : AppCompatActivity() {
     }
 
     // ★ NEW(from newmainactivity): 점수 스무딩/클램프
+    // 시간기반 클램프 + 데드존 + 정지 시 상승 금지
     private fun smoothAndClampScore(
         rawIn: Float,
         userMotion: Float,
         nowMs: Long,
-        stillLocked: Boolean
+        applyStillBrake: Boolean,
+        refE: Float = 0f
     ): Float {
         val raw = rawIn.coerceIn(0f, 100f)
         if (lastScoreUpdateMs == 0L) lastScoreUpdateMs = nowMs
-        val prev = currentScore
+        val prev = smoothedScore ?: raw
         val dtSec = ((nowMs - lastScoreUpdateMs).coerceAtLeast(16L)) / 1000f
 
         val err = raw - prev
-        val upCap   = perSecondMaxUp * dtSec
-        val downCap = perSecondMaxDown * dtSec
+        val upBase = lerp(36f, 72f, refE)
+        val dnBase = lerp(18f, 36f, refE)
+        val upScale = ((userMotion - STILL_MOTION_EPS) / (0.35f - STILL_MOTION_EPS)).coerceIn(0f,1f)
+        val upCap   = (upBase * (0.35f + 0.65f * upScale)) * dtSec
+        val downCap = dnBase * dtSec
 
-        val isQuasiStill = userMotion < STILL_MOTION_EPS
-        if (stillLocked || isQuasiStill) {
+        if (applyStillBrake) {
             val naturalDown = if (err < 0f) err.coerceAtLeast(-downCap) else 0f
             val forcedDown  = -STILL_DECAY_PER_SEC * dtSec
-            val delta = minOf(naturalDown, forcedDown)
-            val out = (prev + delta).coerceIn(0f, 100f)
+            val out = (prev + minOf(naturalDown, forcedDown)).coerceIn(0f, 100f)
+            smoothedScore = out
             lastScoreUpdateMs = nowMs
             return out
         }
 
         if (kotlin.math.abs(err) <= scoreDeadband) {
+            smoothedScore = prev
             lastScoreUpdateMs = nowMs
             return prev
         }
 
         val delta = if (err > 0f) err.coerceAtMost(upCap) else err.coerceAtLeast(-downCap)
         val out = (prev + delta).coerceIn(0f, 100f)
+        smoothedScore = out
         lastScoreUpdateMs = nowMs
         return out
     }
-
-
-    // Helper functions to avoid resolution issues
     private fun maxOf(a: Int, b: Int): Int = if (a > b) a else b
     private fun minOf(a: Int, b: Int): Int = if (a < b) a else b
     private fun minOf(a: Float, b: Float, c: Float): Float {
@@ -662,54 +691,37 @@ class   MainActivity : AppCompatActivity() {
 
     // === 메인 점수 계산(새 알고리즘) → 0~100 ===
     // ★ CHANGED(from newmainactivity)
+    // === 메인 점수 계산(예전 알고리즘: 코사인 기반, 0~100) ===
+// 다른 부분 변경 금지 요청에 따라 이 함수만 교체
     private fun calculateScore(landmarks: List<NormalizedLandmark>): Float {
-        // 1) 현재 프레임 99D
+        // 1) 현재 프레임 99D (x,y,z × 33)
         val currentPoseRaw = landmarks.flatMap { listOf(it.x(), it.y(), it.z()) }
         val currentPose = sanitizeXYZ(currentPoseRaw) ?: return 0f
 
-        // 2) EMA + 정규화 버퍼
+        // 2) EMA로 부드럽게 + 정규화(정지 감지 유지용 버퍼)
         val smoothedPose = applyEMA(currentPose)
-        val smoothedNorm = normalizeFrameByRoot(smoothedPose)
+        val smoothedNorm = normalizeFrameByRoot(smoothedPose, useShoulderEma = true) // ← 변경
+
+        // 채점용/정지감지용 버퍼 갱신 (크기 제한 유지)
         recentFrames.add(smoothedPose)
-        recentFramesN.add(smoothedNorm)
         if (recentFrames.size > maxFrames) recentFrames.removeAt(0)
+
+        recentFramesN.add(smoothedNorm)   // 정지 감지/표시 스무딩 로직과 호환
         if (recentFramesN.size > maxFrames) recentFramesN.removeAt(0)
 
-        // 3) 최소 조건
-        if (!::referenceFramesN.isInitialized || referenceFramesN.isEmpty()) return 0f
-        if (recentFramesN.size < 8) return 0f
-        if (referenceFramesN.size < recentFramesN.size) return 0f
+        // 3) 기본 조건 체크
+        if (!::referenceFrames.isInitialized || referenceFrames.isEmpty()) return 0f
+        if (recentFrames.size < 8) return 0f
 
-        // 4) 검색 범위: 재생위치 근처 or 정지시 고정
-        val L = recentFramesN.size
-        val motionNow = lastUserMotion()
-        val freezeSearch = motionNow < STILL_MOTION_EPS
-        val startRange = if (freezeSearch && lastBestStart != null) {
-            val s = lastBestStart!!.coerceIn(0, referenceFramesN.size - L)
-            s..s
-        } else {
-            refSearchWindow(L, margin = 12)
-        }
+        // 4) 예전 방식: 좌표 정규화/미러/전역시프트/앵커-코사인만으로 0~100 산출
+        val score = scoreCosineOnly(
+            userFramesRaw = recentFrames,
+            refFramesRaw  = referenceFrames,
+            tryMirror     = true
+        )
 
-        // 5) 매칭
-        var best = 0f
-        var bestStart = 0
-        for (start in startRange) {
-            val refSeg = referenceFramesN.subList(start, start + L)
-            val scBase = scoreHybridOnNormalized(
-                usrN = recentFramesN,
-                refN = refSeg,
-                tryMirror = true,
-                wPose = 0.6f,
-                wAngle = 0.4f
-            )
-            val sc = (scBase * segmentDifficultyWeight(refSeg)).coerceIn(0f, 100f)
-            if (sc > best) { best = sc; bestStart = start }
-        }
-        if (!freezeSearch || lastBestStart == null) lastBestStart = bestStart
-        val best01 = (best / 100f).coerceIn(0f, 1f)
-        val calibrated01 = PoseScoreConfig.calibrateScore(best01).coerceIn(0f, 1f)
-        return calibrated01 * 100f
+        // 5) 보정/난이도 가중 없이 그대로 반환(예전 동작)
+        return score.coerceIn(0f, 100f)
     }
 
     // === 유사도/앵커/속도 유틸 (from newmainactivity) ===
@@ -803,26 +815,55 @@ class   MainActivity : AppCompatActivity() {
     }
 
     // 루트(골반 중심) 기준 정규화 + 어깨폭 스케일링
-    private fun normalizeFrameByRoot(raw: List<Float>): List<Float> {
+    // 클래스 멤버로 이미 있음:
+// private var runShoulderW: Float? = null
+
+    private val SHOULDER_EMA_ALPHA = 0.20f   // 어깨폭 EMA 알파 (레거시 근사)
+    private val SHOULDER_CLAMP_RATIO = 0.35f // 프레임 간 폭 변화 허용(±35%)
+
+    private fun normalizeFrameByRoot(
+        raw: List<Float>,
+        useShoulderEma: Boolean = true // 사용자 프레임: true, 레퍼런스: false
+    ): List<Float> {
         fun v(i:Int)=Triple(raw[3*i], raw[3*i+1], raw[3*i+2])
 
+        // 1) 루트(골반 중심)
         val (lx,ly,lz)=v(PoseIdx.LEFT_HIP); val (rx,ry,rz)=v(PoseIdx.RIGHT_HIP)
         val rootX=(lx+rx)/2f; val rootY=(ly+ry)/2f; val rootZ=(lz+rz)/2f
 
+        // 2) 어깨폭 (좌우 어깨 거리)
         val (lsx,lsy,lsz)=v(PoseIdx.LEFT_SHOULDER); val (rsx,rsy,rsz)=v(PoseIdx.RIGHT_SHOULDER)
-        val shoulderW = kotlin.math.sqrt(
+        val instW = kotlin.math.sqrt(
             ((lsx-rsx)*(lsx-rsx) + (lsy-rsy)*(lsy-rsy) + (lsz-rsz)*(lsz-rsz)).toDouble()
         ).toFloat().coerceAtLeast(1e-4f)
 
+        val shoulderW = if (useShoulderEma) {
+            val prev = runShoulderW
+            // 프레임 간 급변 방지(레거시 느낌): 이전 EMA 기준 ±35%로 클램프
+            val clamped = if (prev != null) {
+                val lo = prev * (1f - SHOULDER_CLAMP_RATIO)
+                val hi = prev * (1f + SHOULDER_CLAMP_RATIO)
+                instW.coerceIn(lo, hi)
+            } else instW
+            val ema = prev?.let { SHOULDER_EMA_ALPHA*clamped + (1f-SHOULDER_EMA_ALPHA)*it } ?: instW
+            runShoulderW = ema
+            ema
+        } else {
+            // 레퍼런스는 프레임 독립적(EMA 없음)
+            instW
+        }
+
+        // 3) 평행이동 + 어깨폭 스케일 + z 0.3배
         val out = FloatArray(raw.size)
-        for (i in raw.indices step 3) {
+        var i = 0
+        while (i < raw.size) {
             out[i]   = (raw[i]   - rootX) / shoulderW
             out[i+1] = (raw[i+1] - rootY) / shoulderW
-            out[i+2] = (raw[i+2] - rootZ) / shoulderW * 0.3f // z 축 가중치 낮춤
+            out[i+2] = ((raw[i+2] - rootZ) / shoulderW) * 0.30f
+            i += 3
         }
         return out.toList()
     }
-
     // 좌우 미러: x 반전 + 좌우 swap
     private fun mirrorWithSwap(frame: List<Float>): List<Float> {
         val n = frame.size / 3
@@ -840,8 +881,7 @@ class   MainActivity : AppCompatActivity() {
         }
         PoseIdx.LEFT_TO_RIGHT.forEach { (l, r) -> swap(l, r) }
 
-        // 반전 후 다시 정규화
-        return normalizeFrameByRoot(tmp)
+        return tmp // ✅ 이미 정규화된 프레임이므로 재정규화 금지(특히 z*0.3 중복 방지)
     }
 
     // ★ CHANGED(from newmainactivity): 전역 시프트 추정 시 관절가중 코사인 사용
@@ -1043,8 +1083,8 @@ class   MainActivity : AppCompatActivity() {
     ): Float {
         if (userFramesRaw.isEmpty() || refFramesRaw.isEmpty()) return 0f
 
-        val ref = refFramesRaw.map { normalizeFrameByRoot(it) }
-        val usr = userFramesRaw.map { normalizeFrameByRoot(it) }
+        val ref = refFramesRaw.map { normalizeFrameByRoot(it, useShoulderEma = false) } // ← 변경
+        val usr = userFramesRaw.map { normalizeFrameByRoot(it, useShoulderEma = true) } // ← 변경
         val usrMir = if (tryMirror) usr.map { mirrorWithSwap(it) } else null
 
         fun runOne(target: List<List<Float>>): Float {
@@ -1056,11 +1096,8 @@ class   MainActivity : AppCompatActivity() {
         val s1 = runOne(usr)
         val s2 = usrMir?.let { runOne(it) } ?: -1f
         val s = maxOf(s1, s2)
-
-        return (s * 100f).coerceIn(0f, 100f) // 보기 좋은 0~100 점수
+        return (s * 100f).coerceIn(0f, 100f)
     }
-
-
 
     private val requestPermissionsLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
@@ -1091,6 +1128,10 @@ class   MainActivity : AppCompatActivity() {
         Log.d("Countdown", "카운트다운 시작")
         countdownText.visibility = TextView.VISIBLE
         val countdownValues = listOf("3", "2", "1", "Start!")
+        lastSmoothedFrame = null
+        smoothedScore = null
+        lastScoreUpdateMs = 0L
+        runShoulderW = null
         var index = 0
 
         countdownHandler = Handler(Looper.getMainLooper())
