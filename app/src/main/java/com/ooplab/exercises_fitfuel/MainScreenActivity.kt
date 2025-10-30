@@ -44,14 +44,16 @@ class MainScreenActivity : AppCompatActivity() {
         findViewById<ImageView>(R.id.menuButton).setOnClickListener {
             startActivity(Intent(this, MyPageActivity::class.java))
         }
+
+        // Bottom Navigation
+        findViewById<ImageView>(R.id.homeButton).setOnClickListener {
+            // Current screen, do nothing
+        }
+        findViewById<ImageView>(R.id.btnOpenLeaderboard).setOnClickListener {
+            startActivity(Intent(this, LeaderboardActivity::class.java))
+        }
         findViewById<ImageView>(R.id.settingsButton).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
-        }
-
-        // 1. Bottom Nav Bar의 리더보드 버튼 (ImageView)
-        val btnOpenLeaderboardIcon = findViewById<ImageView>(R.id.btnOpenLeaderboard)
-        btnOpenLeaderboardIcon?.setOnClickListener {
-            startActivity(Intent(this, LeaderboardActivity::class.java))
         }
 
         

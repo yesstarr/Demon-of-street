@@ -13,7 +13,7 @@
         android:id="@+id/titleText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Practice Sellect"
+        android:text="Challenge Sellect"
         android:textSize="28sp"
         android:textStyle="bold"
         android:textColor="#FF486C"
