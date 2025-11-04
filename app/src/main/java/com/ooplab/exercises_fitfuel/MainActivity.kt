@@ -90,6 +90,9 @@ class   MainActivity : AppCompatActivity() {
     private var mediaPlayer: android.media.MediaPlayer? = null // 추가
     private lateinit var slowMotionButton: Button //추가
 
+    private var playbackSpeed = 1.0f
+    private var currentMode = "CHALLENGE"
+
     private lateinit var videoRecorder: VideoRecorder
     private var savedVideoUri: Uri? = null
 
@@ -186,7 +189,15 @@ class   MainActivity : AppCompatActivity() {
         Log.d("CrashDebug", "intent: $intent")
         challengeId = intent.getStringExtra("challengeId") ?: "chicken_banana"
         val videoUrl = intent.getStringExtra("videoUrl")
-        Log.d("CrashDebug", "challengeId: $challengeId, videoUrl: $videoUrl")
+        currentMode = intent.getStringExtra("mode") ?: "CHALLENGE"
+        if (currentMode == "PRACTICE") {
+            playbackSpeed = 0.25f
+            slowMotionButton.visibility = Button.GONE
+        } else {
+            slowMotionButton.visibility = Button.VISIBLE
+        }
+
+        Log.d("CrashDebug", "challengeId: $challengeId, videoUrl: $videoUrl, mode: $currentMode")
 
 
         // ChallengeSession 초기화
@@ -209,6 +220,12 @@ class   MainActivity : AppCompatActivity() {
             videoView.setOnPreparedListener { mp ->
                 Log.d("VideoDebug", "onPrepared 호출됨! duration=${mp.duration}")
                 mediaPlayer = mp // 추가
+
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    val params = mp.playbackParams
+                    params.speed = playbackSpeed
+                    mp.playbackParams = params
+                }
 
                 mp.isLooping = false
                 videoDurationMs = mp.duration
@@ -234,8 +251,11 @@ class   MainActivity : AppCompatActivity() {
                 Log.e("VideoDebug", "영상 재생 중 오류 발생: what=$what, extra=$extra")
                 false
             }
-            slowMotionButton.setOnClickListener {
-                setPlaybackSpeed(0.25f) // 0.25배속으로 토글 시작
+
+            if(currentMode == "CHALLENGE") {
+                slowMotionButton.setOnClickListener {
+                    setPlaybackSpeed(0.25f) // 0.25배속으로 토글 시작
+                }
             }
         }
 

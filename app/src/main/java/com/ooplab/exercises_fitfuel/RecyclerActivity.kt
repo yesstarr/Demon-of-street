@@ -18,9 +18,11 @@ class RecyclerActivity : AppCompatActivity() {
         val recyclerView = findViewById<RecyclerView>(R.id.challengeRecyclerView)
         recyclerView.layoutManager = LinearLayoutManager(this)
 
+        val mode = intent.getStringExtra("mode") ?: "CHALLENGE"
+
         repository.loadChallengeMetaList(
             onSuccess = { challengeList ->
-                recyclerView.adapter = ChallengeAdapter(this, challengeList)
+                recyclerView.adapter = ChallengeAdapter(this, challengeList, mode)
             },
             onError = { e ->
                 Log.e("ChallengeMetaLoad", "Failed to load challenge meta list: ${e.message}")

@@ -15,7 +15,8 @@ import kotlin.jvm.java
 
 class ChallengeAdapter(
     private val context: Context,
-    private val challengeList: List<ChallengeMeta>
+    private val challengeList: List<ChallengeMeta>,
+    private val mode: String
 ) : RecyclerView.Adapter<ChallengeAdapter.ChallengeViewHolder>() {
 
     // ViewHolder 클래스 → item_challenge.xml의 View 참조를 저장
@@ -58,6 +59,7 @@ class ChallengeAdapter(
             val intent = Intent(context, MainActivity::class.java)
             intent.putExtra("challengeId", item.challengeId)
             intent.putExtra("videoUrl", item.videoUrl)
+            intent.putExtra("mode", mode)
             context.startActivity(intent)
         }
     }

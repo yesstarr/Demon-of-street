@@ -66,14 +66,14 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/welcomeText" />
 
-    <!-- My Page Button -->
+    <!-- Practice Mode Button -->
     <Button
         android:id="@+id/btnPracticeMode"
         android:layout_width="315dp"
         android:layout_height="54dp"
-        android:text="My Page"
+        android:text="Practice Mode"
         android:textColor="#FFFFFF"
-        android:backgroundTint="#FF7F98"
+        android:backgroundTint="#FFC107"
         android:textStyle="bold"
         android:layout_marginTop="16dp"
         app:layout_constraintTop_toBottomOf="@id/btnChallengeMode"

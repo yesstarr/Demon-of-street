@@ -36,10 +36,14 @@ class MainScreenActivity : AppCompatActivity() {
         setContentView(R.layout.activity_mainscreen)
 
         findViewById<Button>(R.id.btnChallengeMode).setOnClickListener {
-            startActivity(Intent(this, RecyclerActivity::class.java))
+            val intent = Intent(this, RecyclerActivity::class.java)
+            intent.putExtra("mode", "CHALLENGE")
+            startActivity(intent)
         }
         findViewById<Button>(R.id.btnPracticeMode).setOnClickListener {
-            startActivity(Intent(this, MyPageActivity::class.java))
+            val intent = Intent(this, RecyclerActivity::class.java)
+            intent.putExtra("mode", "PRACTICE")
+            startActivity(intent)
         }
         findViewById<ImageView>(R.id.menuButton).setOnClickListener {
             startActivity(Intent(this, MyPageActivity::class.java))
