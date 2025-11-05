@@ -41,7 +41,7 @@ class MainScreenActivity : AppCompatActivity() {
             startActivity(intent)
         }
         findViewById<Button>(R.id.btnPracticeMode).setOnClickListener {
-            val intent = Intent(this, RecyclerActivity::class.java)
+            val intent = Intent(this, Recycler2Activity::class.java)
             intent.putExtra("mode", "PRACTICE")
             startActivity(intent)
         }

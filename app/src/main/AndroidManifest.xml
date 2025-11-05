@@ -32,6 +32,8 @@
 
         <activity android:name="com.ooplab.exercises_fitfuel.RecyclerActivity" />
 
+        <activity android:name="com.ooplab.exercises_fitfuel.Recycler2Activity" />
+
         <activity android:name="com.ooplab.exercises_fitfuel.SignupActivity" />
 
         <activity android:name="com.ooplab.exercises_fitfuel.MyPageActivity" />
