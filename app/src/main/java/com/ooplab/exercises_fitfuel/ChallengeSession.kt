@@ -90,12 +90,12 @@ class ChallengeSession(
 
     // ★ 추가: 영상 재생 완료 시 호출되는 루핑 처리
     fun handleVideoLooping() {
-        Log.d("ChallengeSession", "handleVideoLooping 호출. 영상 재시작.")
+        Log.d("ChallengeSession", "handleVideoLooping 호출. 영상 재생 완료, 세션 종료 로직 실행.")
 
-        // 루프 처리 (현재 속도가 1.0x가 아니더라도 무한 루프)
-        if (recordingStarted) {
-            videoView.start()
-        }
+//        // 루프 처리 (현재 속도가 1.0x가 아니더라도 무한 루프)
+//        if (recordingStarted) {
+//            videoView.start()
+//        }
     }
 
     private fun setPlaybackSpeed(speed: Float) {

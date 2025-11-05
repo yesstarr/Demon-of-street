@@ -189,17 +189,12 @@ class   MainActivity : AppCompatActivity() {
         Log.d("CrashDebug", "challengeId: $challengeId, videoUrl: $videoUrl, speed: $currentPlaybackSpeed")
 
 
-        // '도전 종료' 버튼을 제거했으므로 관련 로직은 모두 제거되었습니다.
-
-
         // ChallengeSession 초기화
         challengeSession = ChallengeSession(
             activity = this,
             videoView = videoView,
             videoRecorder = videoRecorder,
             challengeId = challengeId
-            // isPracticeMode 플래그를 ChallengeSession에 전달해야 할 수도 있습니다 (현재 코드에는 없음)
-            // challengeSession.isPracticeMode = isPracticeMode // 필요한 경우 ChallengeSession에 필드 추가 후 사용
         )
 
         // 권한 요청 (카메라 + 마이크)
@@ -216,25 +211,24 @@ class   MainActivity : AppCompatActivity() {
                 mediaPlayer = mp // 추가
                 challengeSession.setMediaPlayer(mp)
 
-                // 영상 배속 적용 (연습 모드에서만 배속이 1.0f가 아닐 수 있음)
-                if (currentPlaybackSpeed != 1.0f) {
-                    try {
-                        val params = mp.playbackParams
-                        params.speed = currentPlaybackSpeed
-                        mp.playbackParams = params
-                        Log.d("VideoDebug", "영상 배속 적용 완료: $currentPlaybackSpeed")
-                    } catch (e: Exception) {
-                        Log.e("VideoDebug", "영상 배속 적용 실패: ${e.message}")
-                    }
+                // 1배속 여부와 관계없이 재생 속도 설정 (안정성 확보)
+                try {
+                    val params = mp.playbackParams
+                    params.speed = currentPlaybackSpeed
+                    mp.playbackParams = params
+                    Log.d("VideoDebug", "재생 속도 적용 완료: $currentPlaybackSpeed")
+                } catch (e: Exception) {
+                    Log.e("VideoDebug", "재생 속도 적용 실패: ${e.message}")
                 }
 
-                // ★★★ 핵심 수정: 영상 준비 완료 후 무조건 일시 정지 (카운트다운 시작 전) ★★★
+                // 필수: 영상 준비 완료 후 무조건 일시 정지 (카운트다운 시작 전 동기화)
                 mp.pause()
                 Log.d("VideoDebug", "영상 준비 후 일시 정지(Pause) 완료.")
 
 
-                // 모드에 따라 루핑 설정
-                mp.isLooping = isPracticeMode // 연습 모드(true)일 때만 루핑
+                // ★★★ 핵심 수정: 연습/챌린지 모드 모두 루핑을 끕니다. ★★★
+                mp.isLooping = false
+                Log.d("VideoDebug", "영상 루핑 설정: 1회 재생 후 중지됨.")
 
                 videoDurationMs = mp.duration
                 videoReady = true
@@ -244,19 +238,24 @@ class   MainActivity : AppCompatActivity() {
                 challengeSession.setVideoDuration(videoDurationMs)
 
 
-                // mp.isLooping이 false일 때(챌린지 모드)만 호출되도록 리스너 설정
+                // 챌린지 모드일 때만 (isPracticeMode가 false일 때) onCompletion 리스너 설정
                 if (!isPracticeMode) {
                     videoView.setOnCompletionListener { completionMp ->
-                        challengeSession.handleVideoLooping() // 챌린지 종료 처리
+                        Log.d("VideoDebug", "챌린지 모드: 영상 재생 완료, 세션 종료 처리 시작.")
+                        challengeSession.handleVideoLooping() // 챌린지 종료 처리 (점수 저장 등)
                     }
+                } else {
+                    // 연습 모드에서는 영상이 끝난 후 아무 작업 없이 멈춥니다.
+                    videoView.setOnCompletionListener(null)
+                    Log.d("VideoDebug", "연습 모드: 영상 재생 완료 시 자동 중지.")
                 }
-
-
             }
 
+            // 오류 메시지 억제 및 디버깅 로그 리스너
             videoView.setOnErrorListener { _, what, extra ->
                 Log.e("VideoDebug", "영상 재생 중 오류 발생: what=$what, extra=$extra")
-                false
+                Log.d("VideoDebug", "오류 발생, 시스템 기본 메시지 출력 방지 (처리됨).")
+                true // 기본 처리 방지
             }
         }
 
