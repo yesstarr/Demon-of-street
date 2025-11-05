@@ -49,7 +49,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/topNavBar" />
 
-    <!-- Challenge Mode Button -->
+    <!-- 1. Challenge Mode Button (기존) -->
     <Button
         android:id="@+id/btnChallengeMode"
         android:layout_width="315dp"
@@ -66,12 +66,12 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/welcomeText" />
 
-    <!-- My Page Button -->
+    <!-- 2. ★ Practice Mode Button (신규 추가됨) ★ -->
     <Button
         android:id="@+id/btnPracticeMode"
         android:layout_width="315dp"
         android:layout_height="54dp"
-        android:text="My Page"
+        android:text="Practice Mode"
         android:textColor="#FFFFFF"
         android:backgroundTint="#FF7F98"
         android:textStyle="bold"
@@ -80,7 +80,26 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
-    <!-- Mini Buttons -->
+    <!-- 3. My Page Button (ID를 btnMyPage로 변경하고 위치 수정) -->
+    <!-- Practice Mode 아래로 연결 -->
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- Mini Buttons (위치 수정됨: btnMyPage 아래) -->
+    <Button
+        android:id="@+id/btnMyPage"
+        android:layout_width="315dp"
+        android:layout_height="54dp"
+        android:layout_marginTop="16dp"
+        android:background="@drawable/rounded_button_pink"
+        android:backgroundTint="#FFFFFF"
+        android:text="My Page"
+        android:textColor="#FF486C"
+        android:textStyle="bold"
+        app:backgroundTint="@null"
+        app:layout_constraintTop_toBottomOf="@id/btnPracticeMode"
+        tools:layout_editor_absoluteX="48dp" />
+
     <LinearLayout
         android:id="@+id/miniButtonsLayout"
         android:layout_width="315dp"
@@ -90,7 +109,7 @@
         android:weightSum="3"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/btnPracticeMode">
+        app:layout_constraintTop_toBottomOf="@id/btnMyPage"> <!-- btnMyPage 아래로 연결 -->
 
         <!-- Points Button -->
         <LinearLayout

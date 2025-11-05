@@ -2,6 +2,7 @@ package com.ooplab.exercises_fitfuel
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -28,19 +29,41 @@ class MainScreenActivity : AppCompatActivity() {
     private var miniLoading = false
     private var miniReachedEnd = false
 
-    // [추가] onResume에서 첫 회 중복 호출 방지
+    // [유지] onResume에서 첫 회 중복 호출 방지
     private var firstResume = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // XML 파일 이름이 activity_mainscreen이라면 activity_main_screen.xml로 가정
         setContentView(R.layout.activity_mainscreen)
 
+        // 1. ★ 버튼 클릭 리스너 수정 및 분리 ★
+
+        // Challenge Mode 버튼: IS_PRACTICE_MODE = false 전달
         findViewById<Button>(R.id.btnChallengeMode).setOnClickListener {
-            startActivity(Intent(this, RecyclerActivity::class.java))
+            val intent = Intent(this, RecyclerActivity::class.java).apply {
+                putExtra("IS_PRACTICE_MODE", false)
+            }
+            startActivity(intent)
         }
+
+        // Practice Mode 버튼: IS_PRACTICE_MODE = true 전달
         findViewById<Button>(R.id.btnPracticeMode).setOnClickListener {
+            val intent = Intent(this, RecyclerActivity::class.java).apply {
+                putExtra("IS_PRACTICE_MODE", true)
+            }
+            startActivity(intent)
+        }
+
+        // My Page 버튼: (XML에서 ID를 btnMyPage로 수정했음을 가정하고 로직 재정의)
+        // 주의: 현재 XML에서 My Page 버튼의 ID가 btnPracticeMode로 설정되어 있으므로,
+        // XML을 수정하지 않았다면 아래 ID는 R.id.btnMyPage로 변경해야 합니다.
+        // 여기서는 XML을 이전 단계에서 올바르게 수정했다는 가정 하에 R.id.btnMyPage를 찾습니다.
+        findViewById<Button>(R.id.btnMyPage)?.setOnClickListener {
             startActivity(Intent(this, MyPageActivity::class.java))
         }
+
+        // ... (나머지 기존 클릭 리스너 로직 유지)
         findViewById<ImageView>(R.id.menuButton).setOnClickListener {
             startActivity(Intent(this, MyPageActivity::class.java))
         }
@@ -54,7 +77,7 @@ class MainScreenActivity : AppCompatActivity() {
             startActivity(Intent(this, LeaderboardActivity::class.java))
         }
 
-        
+
 
         // 랭킹 RecyclerView (미니 랭킹)
         val rv = findViewById<RecyclerView>(R.id.leaderboardRecycler)
@@ -120,7 +143,7 @@ class MainScreenActivity : AppCompatActivity() {
         loadMiniPage(reset = true)
     }
 
-    // [추가] 메인으로 돌아올 때마다 최신순으로 갱신(조회수/좋아요 서버 반영 반영)
+    // [유지] 메인으로 돌아올 때마다 최신순으로 갱신(조회수/좋아요 서버 반영 반영)
     override fun onResume() {
         super.onResume()
         if (firstResume) { // onCreate 직후 중복 방지
@@ -193,4 +216,3 @@ private fun DocumentSnapshot.toPublicVideoItem(): PublicVideoItem {
         thumbPath = getString("thumbPath")
     )
 }
-
