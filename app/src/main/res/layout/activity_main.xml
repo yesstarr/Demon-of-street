@@ -23,23 +23,6 @@
 
     </androidx.camera.view.PreviewView>
 
-    <Button
-        android:id="@+id/slowMotionButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="24dp"
-        android:layout_marginBottom="24dp"
-        android:alpha="0.3"
-        android:backgroundTint="?attr/colorPrimary"
-        android:elevation="10dp"
-        android:paddingHorizontal="12dp"
-        android:paddingVertical="6dp"
-        android:text="0.25x 느리게"
-        android:textColor="#FFFFFF"
-        android:textSize="12sp"
-        android:textStyle="bold"
-        app:layout_constraintBottom_toBottomOf="@id/previewCam"
-        app:layout_constraintEnd_toEndOf="@id/previewCam" />
 
     <!-- 기존 영상 재생 (우측 상단에 띄우는 영상) -->
     <androidx.cardview.widget.CardView
@@ -59,6 +42,7 @@
             android:layout_height="match_parent" />
 
     </androidx.cardview.widget.CardView>
+
 
     <!-- 점수 텍스트 -->
 <TextView
@@ -92,6 +76,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
+
 
     <!-- 돌아가기 버튼 -->
     <Button

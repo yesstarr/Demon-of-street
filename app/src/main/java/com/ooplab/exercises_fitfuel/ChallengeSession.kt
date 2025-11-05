@@ -15,7 +15,8 @@ import android.content.ContentValues
 import android.os.Build
 import android.provider.MediaStore
 import java.io.File
-
+import android.media.MediaPlayer
+import android.media.PlaybackParams
 /**
  * 한 번의 챌린지 세션 실행을 관리하는 클래스
  * - 원본 영상 재생
@@ -27,11 +28,20 @@ class ChallengeSession(
     private val videoView: VideoView,
     private val videoRecorder: VideoRecorder,
     private val challengeId: String
+
 ) {
+    private val handler = Handler(Looper.getMainLooper())
     private var savedVideoUri: Uri? = null
     private var pendingScore: Float? = null
     private var recordingStarted = false
     private var videoDurationMs: Int = 0
+    // private var currentPlaybackSpeed: Float = 1.0f //  추가: 현재 재생 속도
+    private var fixedPlaybackSpeed: Float = 1.0f // ★ 새로운 고정 변수 사용
+
+    private var challengeEndRunnable: Runnable? = null
+    private var challengeStartTimeMs: Long = 0L
+    private var totalVideoDuration1xMs: Long = 0L // 1배속 기준 총 길이 (ms)
+    private var scoreProvider: (() -> Float)? = null // 점수 계산 람다를 저장
 
     // 사용자가 "저장"을 선택했지만 아직 파일 finalize 콜백이 안 왔을 때 처리
     private var pendingSaveRequested: Boolean = false
@@ -47,12 +57,66 @@ class ChallengeSession(
     private var pendingScoreForDialog: Float? = null
     private var pendingDeleteRequested: Boolean = false
 
+    private var mediaPlayer: MediaPlayer? = null
 
     fun setVideoDuration(duration: Int) {
         videoDurationMs = duration
     }
 
-    fun start(averageScoreProvider: () -> Float) {
+//    // ★ 추가: MainActivity로부터 속도 변경 알림을 받음
+//    fun setCurrentPlaybackSpeed(speed: Float) {
+//
+//        // 1. 속도가 이전과 동일하면 불필요한 실행 없이 즉시 종료
+//        if (currentPlaybackSpeed == speed) {
+//            return
+//        }
+//
+//        // 2. 속도가 변경되었으므로 멤버 변수 업데이트
+//        currentPlaybackSpeed = speed
+//
+//        Log.d("ChallengeSession", "CALL: setCurrentPlaybackSpeed($speed) - isPlaying=${videoView.isPlaying}, currentPos=${videoView.currentPosition}")
+//
+//        // 3. 챌린지가 이미 시작되었고, 점수 계산 준비가 되었다면 타이머를 재설정합니다.
+//        if (recordingStarted && scoreProvider != null) {
+//            // Handler 객체 생성 대신, 멤버 변수 handler를 사용합니다.
+//            startChallengeEndTimer() // 인자 제거
+//        }
+//    }
+
+    fun setMediaPlayer(mp: MediaPlayer) {
+        this.mediaPlayer = mp
+    }
+
+
+    // ★ 추가: 영상 재생 완료 시 호출되는 루핑 처리
+    fun handleVideoLooping() {
+        Log.d("ChallengeSession", "handleVideoLooping 호출. 영상 재생 완료, 세션 종료 로직 실행.")
+
+//        // 루프 처리 (현재 속도가 1.0x가 아니더라도 무한 루프)
+//        if (recordingStarted) {
+//            videoView.start()
+//        }
+    }
+
+    private fun setPlaybackSpeed(speed: Float) {
+        val mp = mediaPlayer
+        if (mp != null) {
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    val params = mp.playbackParams
+                    params.speed = speed
+                    mp.playbackParams = params
+                    Log.d("VideoDebug", "Playback speed set to ${speed}x")
+                } else {
+                    Log.w("VideoDebug", "느리게 재생은 Android 6.0 이상에서 지원됩니다.")
+                }
+            } catch (e: Exception) {
+                Log.e("VideoDebug", "재생 속도 설정 오류: ${e.message}")
+            }
+        }
+    }
+
+    fun start(averageScoreProvider: () -> Float, speed: Float) {
         if (ContextCompat.checkSelfPermission(
                 activity, Manifest.permission.RECORD_AUDIO
             ) != PackageManager.PERMISSION_GRANTED
@@ -66,9 +130,13 @@ class ChallengeSession(
             return
         }
         recordingStarted = true
-        Log.d("ChallengeSession", "start() 진입 → 녹화 시작 준비")
+        Log.d("ChallengeSession", "start() 진입 → 녹화 시작 준비 (고정 배속: $speed)")
 
-        val handler = Handler(Looper.getMainLooper())
+        // Handler 선언 제거 (이제 클래스 멤버 'handler'를 사용합니다)
+        totalVideoDuration1xMs = videoDurationMs.toLong() // 1. 1x 총 시간 저장
+        scoreProvider = averageScoreProvider             // 2. 점수 계산 람다
+        fixedPlaybackSpeed = speed
+        setPlaybackSpeed(fixedPlaybackSpeed)
 
 
         // 1) 녹화 시작
@@ -119,27 +187,87 @@ class ChallengeSession(
         // 2) 영상 재생 시작
         Log.d("ChallengeSession", "영상 재생 시작")
         videoView.start()
+        challengeStartTimeMs = System.currentTimeMillis() // 3. 시작 시간 기록
 
         // 3) 영상 끝나면 정지 + 점수 계산
-        handler.postDelayed({
+        startChallengeEndTimer()
+    }
+
+    private fun runChallengeEndLogic(averageScoreProvider: () -> Float) {
+        challengeEndRunnable = null
+        Log.e("ChallengeSession", "!!! TIMER EXECUTED !!! - SystemTime=${System.currentTimeMillis()}")
+        videoView.pause()
+        videoRecorder.stopRecording()
+        Log.d("ChallengeSession", "영상 일시정지 및 녹화 중지 호출")
+
+        val averageScore = averageScoreProvider()
+        Log.d("ChallengeSession", "점수 계산 완료 → averageScore=$averageScore")
+
+        // 저장 여부 팝업 → 선택에 따라 업로드/미업로드 처리 후 결과 이동
+        if (savedVideoUri != null) {
+            showSaveDialog(score = averageScore, videoUri = savedVideoUri)
+        } else {
+            Log.d("ChallengeSession", "Finalize 미도착 → N초 대기 후 팝업")
+            showWaitingDialog()
+            pendingScoreForDialog = averageScore
+            waitFinalizeThenShowDialog(averageScore)
+        }
+    }
+
+    // 속도 변경 시 호출되어 타이머를 취소하고 재설정
+    private fun startChallengeEndTimer() {
+
+        val speed = fixedPlaybackSpeed // ★ MODIFIED: currentPlaybackSpeed 대신 fixedPlaybackSpeed 사용 ★
+
+        val averageScoreProvider = scoreProvider ?: return // provider 없으면 실행 불가
+
+        // 1. 이전 러너블 취소
+        challengeEndRunnable?.let {
+            handler.removeCallbacks(it) // 멤버 변수 handler 사용
+            Log.w("ChallengeSession", "PREV TIMER CANCELLED!") // 취소 성공 로그 추가
+        }
+
+        // 2. 경과 시간 및 남은 1x 시간 계산
+        val elapsedTimeReal = System.currentTimeMillis() - challengeStartTimeMs
+        // 1배속 기준으로 얼마나 시간이 흘렀는지 (실제 시간 * 현재 속도)
+        val elapsed1xFloat = elapsedTimeReal * speed // ★ MODIFIED: speed 변수 사용 ★
+        val remainingTime1x = (totalVideoDuration1xMs - elapsed1xFloat.toLong()).coerceAtLeast(0L) // coerceAtLeast(0L) 사용
+
+        if (remainingTime1x <= 0L) {
+            // 이미 종료되었어야 한다면 즉시 종료 로직 실행
+            Log.d("ChallengeSession", "startChallengeEndTimer: 남은 시간 없음. 즉시 종료.")
+            runChallengeEndLogic(averageScoreProvider)
+            return
+        }
+
+        // 3. 남은 1x 시간을 새로운 속도로 나눈 실제 남은 시간 계산
+        val actualRemainingDuration = (remainingTime1x.toFloat() / speed).toLong() // ★ MODIFIED: speed 변수 사용 ★
+
+        Log.i("ChallengeSession", "!!! DIAG START (FIXED SPEED) !!!") // ★ MODIFIED
+        Log.i("ChallengeSession", "현재 시스템 시간: ${System.currentTimeMillis()}")
+        Log.i("ChallengeSession", "챌린지 시작 시간: $challengeStartTimeMs")
+        Log.i("ChallengeSession", "실제 경과 시간: $elapsedTimeReal ms")
+        Log.i("ChallengeSession", "1x 기준 총 시간: $totalVideoDuration1xMs ms")
+        Log.i("ChallengeSession", "고정 속도: $speed x") // ★ MODIFIED
+        Log.i("ChallengeSession", "계산된 예약 시간: $actualRemainingDuration ms") // 이 시간 후에 팝업이 떠야 함
+        Log.i("ChallengeSession", "!!! DIAG END !!!")
+
+        Log.i("ChallengeSession", "--- 타이머 설정 ---") // ★ MODIFIED: 재설정 → 설정
+        Log.i("ChallengeSession", "경과된 1x 시간: ${elapsed1xFloat.toLong()} ms")
+        Log.i("ChallengeSession", "남은 1x 시간: $remainingTime1x ms")
+        Log.i("ChallengeSession", "고정된 재생 속도: $speed x") // ★ MODIFIED
+        Log.i("ChallengeSession", "종료 예약 시간: $actualRemainingDuration ms") // ★ MODIFIED
+        Log.i("ChallengeSession", "----------------------")
+
+
+        // 4. 새로운 타이머 설정
+        challengeEndRunnable = Runnable {
             Log.d("ChallengeSession", "handler.postDelayed 실행 → 영상 종료 처리")
-            videoView.pause()
-            videoRecorder.stopRecording()
-            Log.d("ChallengeSession", "영상 일시정지 및 녹화 중지 호출")
+            runChallengeEndLogic(averageScoreProvider)
+        }
 
-            val averageScore = averageScoreProvider()
-            Log.d("ChallengeSession", "점수 계산 완료 → averageScore=$averageScore")
-
-            // 저장 여부 팝업 → 선택에 따라 업로드/미업로드 처리 후 결과 이동
-            if (savedVideoUri != null) {
-                showSaveDialog(score = averageScore, videoUri = savedVideoUri)
-            } else {
-                Log.d("ChallengeSession", "Finalize 미도착 → N초 대기 후 팝업")
-                showWaitingDialog()
-                pendingScoreForDialog = averageScore
-                waitFinalizeThenShowDialog(averageScore)
-            }
-        },videoDurationMs.toLong())
+        // ★★★ 멤버 변수 handler 사용 ★★★
+        handler.postDelayed(challengeEndRunnable!!, actualRemainingDuration)
     }
 
     // 저장 여부를 묻는 다이얼로그
@@ -315,6 +443,23 @@ class ChallengeSession(
         } catch (t: Throwable) {
             Log.w("ChallengeSession", "[DEL] deleteLocalFile error: ${t.message}", t)
         }
+    }
+
+    fun release() {
+        // 1. challengeEndRunnable 타이머 정리 (postDelayed로 예약된 종료 로직)
+        challengeEndRunnable?.let {
+            handler.removeCallbacks(it)
+        }
+        challengeEndRunnable = null
+
+        // 2. finalizeTimeoutRunnable 타이머 정리 (finalize 대기 로직)
+        cancelFinalizeTimeout()
+
+        // 3. MediaPlayer 객체 정리 (VideoView는 액티비티에서 처리되지만, 만약을 위해 정리)
+        // 실제 MediaPlayer 객체는 VideoView 내부에 있으므로, 핸들러 정리만으로 충분함.
+        // 추가로 정리할 객체가 있다면 여기에 추가.
+
+        Log.d("ChallengeSession", "ChallengeSession: All handlers and resources released.")
     }
 }
 

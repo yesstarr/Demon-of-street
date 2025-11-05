@@ -32,6 +32,59 @@
         android:layout_marginBottom="24dp"
         android:layout_marginTop="8dp"/>
 
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="연습 속도 선택 (고정)"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#000000"
+        android:layout_marginBottom="8dp"/>
+
+    <RadioGroup
+        android:id="@+id/speedRadioGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginBottom="24dp">
+
+        <RadioButton
+            android:id="@+id/radioSpeed025"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0.25x"
+            android:layout_marginEnd="16dp"
+            android:tag="0.25"
+            android:checked="false"/>
+
+        <RadioButton
+            android:id="@+id/radioSpeed05"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0.5x"
+            android:layout_marginEnd="16dp"
+            android:tag="0.5"
+            android:checked="false"/>
+
+        <RadioButton
+            android:id="@+id/radioSpeed075"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0.75x"
+            android:layout_marginEnd="16dp"
+            android:tag="0.75"
+            android:checked="false"/>
+
+        <RadioButton
+            android:id="@+id/radioSpeed1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="1.0x"
+            android:tag="1.0"
+            android:checked="true"/>
+    </RadioGroup>
+
     <!-- Confirm Button -->
     <Button
         android:id="@+id/btnConfirm"
