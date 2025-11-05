@@ -141,6 +141,15 @@
 
     </LinearLayout>
 
+        <!-- ★ ADDED: 좋아요한 영상 보기 버튼 -->
+        <Button
+            android:id="@+id/btnLikedVideos"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="❤"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"/>
+
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"

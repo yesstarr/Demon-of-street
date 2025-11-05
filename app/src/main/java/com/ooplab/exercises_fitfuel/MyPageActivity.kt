@@ -83,6 +83,11 @@ class MyPageActivity : AppCompatActivity() {
             finish()
         }
 
+        // ★ ADDED: 좋아요한 영상 버튼 → LikedVideosActivity 이동
+        findViewById<Button>(R.id.btnLikedVideos).setOnClickListener {
+            startActivity(Intent(this, LikedVideosActivity::class.java))
+        }
+
     }
 
     // ★ CHANGED: 결과 화면 다녀와도 갱신되도록 onResume에서 재로딩
