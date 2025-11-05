@@ -77,10 +77,21 @@ exports.toggleLike = https.onCall(async (req) => {
     if (liked) {
       tx.delete(likeRef);
     } else {
-      tx.set(likeRef, { at: admin.firestore.FieldValue.serverTimestamp() });
+      tx.set(likeRef, {
+        uid,                       // 쿼리용
+        videoId: videoId,          // ★ 타이브레이커용(정렬/커서에 사용)
+        at: admin.firestore.FieldValue.serverTimestamp(),
+       }, { merge: true });
+
     }
     tx.update(videoRef, { likesCount: admin.firestore.FieldValue.increment(delta) });
 
+    console.log('[toggleLike] writeLike', {
+      path: likeRef.path,
+      liked: !liked,
+      uid,
+      videoId
+    });
     return { liked: !liked };
   });
 });
@@ -413,3 +424,128 @@ exports.onHistoryDeleted = onDocumentDeleted(
     }
   }
 );
+
+// === 내가 좋아요한 공개 영상 10개씩 페이지네이션 ===
+// 요청: { pageSize?: number=10, pageToken?: string }
+// 응답: { items: PublicVideoItem[], nextPageToken: string|null }
+exports.listMyLikedVideos = https.onCall(async (req) => {
+  try {
+    const uid = assertAuth(req);
+    const data = req.data || {};
+    const size = Math.min(Math.max(Number(data.pageSize) || 10, 1), 50);
+    const pageToken = typeof data.pageToken === 'string' ? data.pageToken : null;
+
+    // likes 컬렉션그룹에서 내 uid 문서만, at 있는 것만 최신순
+    // 인덱스: uid(ASC), at(DESC), videoId(ASC) 와 1:1로 맞춤
+    let q = db
+      .collectionGroup('likes')
+      .where('uid', '==', uid)
+      .orderBy('at', 'desc')                           // 1차 정렬
+      .orderBy(admin.firestore.FieldPath.documentId()) // 2차 정렬(문서ID)
+      .limit(size);
+
+
+    // 커서는 정렬 필드 개수(2)에 맞춰 (at, videoId) 값 튜플로 지정
+    if (pageToken) {
+        const cursor = await db.doc(pageToken).get();     // likes 문서 스냅샷
+        if (cursor.exists && cursor.get('at') != null) {
+          q = q.startAfter(cursor.get('at'), cursor.id);  // (at, 문서ID)
+        }
+    }
+
+    const likeSnap = await q.get();
+    if (likeSnap.empty) return { items: [], nextPageToken: null };
+
+    // 상위 상위가 public_videos/{videoId}
+    const pvRefs = likeSnap.docs.map(d => d.ref.parent.parent).filter(Boolean);
+    const pvDocs = await db.getAll(...pvRefs);
+
+    const docMap = new Map(pvDocs.map(doc => [doc.id, doc]));
+    const items = likeSnap.docs
+      .map(d => d.ref.parent.parent)
+      .filter(Boolean)
+      .map(ref => docMap.get(ref.id))
+      .filter(doc => doc && doc.exists) // 존재만 확인
+      .map(doc => {
+        const v = doc.data() || {};
+        return {
+          id: doc.id,
+          ownerUid: v.ownerUid || null,
+          ownerNickname: v.ownerNickname || null,
+          challengeId: v.challengeId || null,
+          title: v.title || v.challengeId || null,
+          videoUrl: v.videoUrl || null,
+          scoreAvg: Number(v.scoreAvg || 0),
+          likesCount: Number(v.likesCount || 0),
+          viewsCount: Number(v.viewsCount || 0),
+          thumbUrl: v.thumbUrl || null,
+          thumbPath: v.thumbPath || null,
+          createdAt: v.createdAt && v.createdAt.toMillis ? v.createdAt.toMillis() : null,
+          isActive: v.isActive === true, // 내려만 줌(클라이언트에서 표시용)
+        };
+      });
+
+    const last = likeSnap.docs[likeSnap.docs.length - 1];
+    return { items, nextPageToken: last ? last.ref.path : null };
+  } catch (e) {
+    console.error('listMyLikedVideos failed:', e);
+    if (e instanceof https.HttpsError) throw e;
+    const msg = (e && e.message) ? e.message : 'unknown';
+    throw new https.HttpsError('failed-precondition', msg);
+  }
+});
+
+// === 디버그: 내 likes 컬렉션그룹 조회 결과를 직빵으로 확인 ===
+exports.debugMyLikes = https.onCall(async (req) => {
+  const uid = assertAuth(req);
+
+  const data = req && req.data ? req.data : {};
+  const pageSizeRaw = (typeof data.pageSize === 'number' || typeof data.pageSize === 'string') ? Number(data.pageSize) : 10;
+  const size = Math.min(Math.max(pageSizeRaw || 10, 1), 50);
+
+  // listMyLikedVideos와 동일한 쿼리 스펙(현재: at desc + videoId asc)
+  const q = db.collectionGroup('likes')
+    .where('uid', '==', uid)
+    .orderBy('at', 'desc')
+    .orderBy('videoId', 'asc')
+    .limit(size);
+
+  const snap = await q.get();
+  const rows = [];
+  for (let i = 0; i < snap.docs.length; i++) {
+    const d = snap.docs[i];
+    const obj = d.data() || {};
+    let atMillis = null;
+    if (obj.at && typeof obj.at.toMillis === 'function') {
+      try { atMillis = obj.at.toMillis(); } catch (e) { atMillis = null; }
+    }
+    rows.push({
+      path: d.ref.path,                  // ex) public_videos/{videoId}/likes/{uid}
+      uid: obj.uid || null,
+      videoId: obj.videoId || null,
+      atMillis: atMillis
+    });
+  }
+
+  return { count: rows.length, rows: rows };
+});
+
+// === 디버그: 특정 like 문서 path를 그대로 읽어서 확인 ===
+// 요청 예: { path: "public_videos/VIDEO123/likes/UID123" }
+exports.debugOneLikePath = https.onCall(async (req) => {
+  assertAuth(req);
+
+  const data = req && req.data ? req.data : {};
+  const path = (typeof data.path === 'string') ? data.path : '';
+
+  if (!(path.indexOf('public_videos/') === 0) || path.indexOf('/likes/') === -1) {
+    throw new https.HttpsError('invalid-argument', 'invalid path');
+  }
+
+  const doc = await db.doc(path).get();
+  const result = { exists: doc.exists, path: doc.ref.path, data: null };
+  if (doc.exists) {
+    result.data = doc.data();
+  }
+  return result;
+});

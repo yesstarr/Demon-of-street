@@ -41,6 +41,7 @@ class MainScreenActivity : AppCompatActivity() {
 
         // Challenge Mode 버튼: IS_PRACTICE_MODE = false 전달
         findViewById<Button>(R.id.btnChallengeMode).setOnClickListener {
+
             val intent = Intent(this, RecyclerActivity::class.java).apply {
                 putExtra("IS_PRACTICE_MODE", false)
             }
@@ -49,6 +50,7 @@ class MainScreenActivity : AppCompatActivity() {
 
         // Practice Mode 버튼: IS_PRACTICE_MODE = true 전달
         findViewById<Button>(R.id.btnPracticeMode).setOnClickListener {
+
             val intent = Intent(this, RecyclerActivity::class.java).apply {
                 putExtra("IS_PRACTICE_MODE", true)
             }
@@ -59,24 +61,30 @@ class MainScreenActivity : AppCompatActivity() {
         // 주의: 현재 XML에서 My Page 버튼의 ID가 btnPracticeMode로 설정되어 있으므로,
         // XML을 수정하지 않았다면 아래 ID는 R.id.btnMyPage로 변경해야 합니다.
         // 여기서는 XML을 이전 단계에서 올바르게 수정했다는 가정 하에 R.id.btnMyPage를 찾습니다.
-        findViewById<Button>(R.id.btnMyPage)?.setOnClickListener {
-            startActivity(Intent(this, MyPageActivity::class.java))
-        }
+
 
         // ... (나머지 기존 클릭 리스너 로직 유지)
         findViewById<ImageView>(R.id.menuButton).setOnClickListener {
             startActivity(Intent(this, MyPageActivity::class.java))
         }
+
+        // Bottom Navigation
+        findViewById<ImageView>(R.id.homeButton).setOnClickListener {
+            // Current screen, do nothing
+        }
+        findViewById<ImageView>(R.id.btnOpenLeaderboard).setOnClickListener {
+            startActivity(Intent(this, LeaderboardActivity::class.java))
+        }
         findViewById<ImageView>(R.id.settingsButton).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
+
 
         // 1. Bottom Nav Bar의 리더보드 버튼 (ImageView)
         val btnOpenLeaderboardIcon = findViewById<ImageView>(R.id.btnOpenLeaderboard)
         btnOpenLeaderboardIcon?.setOnClickListener {
             startActivity(Intent(this, LeaderboardActivity::class.java))
         }
-
 
 
         // 랭킹 RecyclerView (미니 랭킹)

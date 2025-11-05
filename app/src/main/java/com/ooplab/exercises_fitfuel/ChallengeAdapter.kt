@@ -15,7 +15,7 @@ import com.bumptech.glide.Glide
 
 class ChallengeAdapter(
     private val context: Context,
-    private val challengeList: List<ChallengeMeta>
+    private val challengeList: List<ChallengeMeta>,
 ) : RecyclerView.Adapter<ChallengeAdapter.ChallengeViewHolder>() {
 
     // ★ NEW: 챌린지 시작 버튼 클릭 리스너 정의 (상위 액티비티가 처리할 로직)
@@ -67,6 +67,7 @@ class ChallengeAdapter(
             val intent = Intent(context, MainActivity::class.java)
             intent.putExtra("challengeId", item.challengeId)
             intent.putExtra("videoUrl", item.videoUrl)
+            intent.putExtra("mode", mode)
             context.startActivity(intent)
             */
         }

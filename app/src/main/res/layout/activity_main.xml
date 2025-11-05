@@ -5,7 +5,7 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_radial_gradient"
+    android:background="#FFFDD0"
     tools:context=".MainActivity">
 
     <!-- 카메라 미리보기 -->
@@ -19,56 +19,49 @@
         app:layout_constraintBottom_toTopOf="@+id/backToMenuButton"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:implementationMode="compatible" />
+        app:implementationMode="compatible" >
+
+    </androidx.camera.view.PreviewView>
+
 
     <!-- 기존 영상 재생 (우측 상단에 띄우는 영상) -->
-    <VideoView
-        android:id="@+id/videoView"
+    <androidx.cardview.widget.CardView
+        android:id="@+id/videoViewCard"
         android:layout_width="120dp"
         android:layout_height="218dp"
         android:layout_marginTop="16dp"
         android:layout_marginEnd="16dp"
-        android:elevation="10dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="10dp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent">
 
-<!--    <Button-->
-<!--        android:id="@+id/slowMotionButton"-->
-<!--        android:layout_width="wrap_content"-->
-<!--        android:layout_height="wrap_content"-->
-<!--        android:text="0.25x 느리게"-->
-<!--        android:textColor="#FFFFFF"-->
-<!--        android:textStyle="bold"-->
-<!--        android:textSize="10sp"-->
-<!--        android:backgroundTint="#00BFFF"-->
-<!--        android:paddingHorizontal="12dp"-->
-<!--        android:paddingVertical="6dp"-->
-<!--        android:layout_marginTop="8dp"-->
-<!--        android:elevation="10dp"-->
-<!--        app:layout_constraintTop_toBottomOf="@id/videoView"-->
-<!--        app:layout_constraintEnd_toEndOf="@id/videoView"-->
-<!--        app:layout_constraintStart_toStartOf="@id/videoView" />-->
+        <VideoView
+            android:id="@+id/videoView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+    </androidx.cardview.widget.CardView>
 
 
     <!-- 점수 텍스트 -->
-    <TextView
-        android:id="@+id/score_text"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Score"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:textColor="#FF486C"
-        android:background="#FFFFFF"
-        android:backgroundTint="#FFFFFF"
-        android:backgroundTintMode="src_in"
-        android:padding="8dp"
-        android:elevation="4dp"
-        android:layout_marginTop="24dp"
-        android:layout_marginHorizontal="16dp"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+<TextView
+    android:id="@+id/score_text"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="16dp"
+    android:layout_marginTop="24dp"
+    android:background="@drawable/score_box_shape"
+    android:elevation="4dp"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="8dp"
+    android:text="Score"
+    android:textColor="#FF486C"
+    android:textSize="24sp"
+    android:textStyle="bold"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintTop_toTopOf="parent" />
 
     <!-- 카운트다운 표시 -->
     <TextView
@@ -100,5 +93,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
+
+    
 
 </androidx.constraintlayout.widget.ConstraintLayout>

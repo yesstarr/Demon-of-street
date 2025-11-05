@@ -29,7 +29,7 @@ class ResultActivity : AppCompatActivity() {
         val shareButton = findViewById<Button>(R.id.share_button)
 
         // 점수 표시
-        averageTextView.text = String.format("최종 점수: %.2f", averageScore * 100)
+        averageTextView.text = String.format("%.2f", averageScore * 100)
 
         // 확인 버튼 클릭 시 메인 화면으로 이동
         confirmButton.setOnClickListener {
