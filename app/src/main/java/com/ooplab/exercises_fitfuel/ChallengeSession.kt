@@ -37,7 +37,8 @@ class ChallengeSession(
     private var videoDurationMs: Int = 0
     // private var currentPlaybackSpeed: Float = 1.0f //  추가: 현재 재생 속도
     private var fixedPlaybackSpeed: Float = 1.0f // ★ 새로운 고정 변수 사용
-
+    private fun isActivityAlive(): Boolean =
+        !activity.isFinishing && !activity.isDestroyed
     private var challengeEndRunnable: Runnable? = null
     private var challengeStartTimeMs: Long = 0L
     private var totalVideoDuration1xMs: Long = 0L // 1배속 기준 총 길이 (ms)
@@ -63,26 +64,6 @@ class ChallengeSession(
         videoDurationMs = duration
     }
 
-//    // ★ 추가: MainActivity로부터 속도 변경 알림을 받음
-//    fun setCurrentPlaybackSpeed(speed: Float) {
-//
-//        // 1. 속도가 이전과 동일하면 불필요한 실행 없이 즉시 종료
-//        if (currentPlaybackSpeed == speed) {
-//            return
-//        }
-//
-//        // 2. 속도가 변경되었으므로 멤버 변수 업데이트
-//        currentPlaybackSpeed = speed
-//
-//        Log.d("ChallengeSession", "CALL: setCurrentPlaybackSpeed($speed) - isPlaying=${videoView.isPlaying}, currentPos=${videoView.currentPosition}")
-//
-//        // 3. 챌린지가 이미 시작되었고, 점수 계산 준비가 되었다면 타이머를 재설정합니다.
-//        if (recordingStarted && scoreProvider != null) {
-//            // Handler 객체 생성 대신, 멤버 변수 handler를 사용합니다.
-//            startChallengeEndTimer() // 인자 제거
-//        }
-//    }
-
     fun setMediaPlayer(mp: MediaPlayer) {
         this.mediaPlayer = mp
     }
@@ -92,10 +73,7 @@ class ChallengeSession(
     fun handleVideoLooping() {
         Log.d("ChallengeSession", "handleVideoLooping 호출. 영상 재생 완료, 세션 종료 로직 실행.")
 
-//        // 루프 처리 (현재 속도가 1.0x가 아니더라도 무한 루프)
-//        if (recordingStarted) {
-//            videoView.start()
-//        }
+//
     }
 
     private fun setPlaybackSpeed(speed: Float) {
@@ -190,7 +168,26 @@ class ChallengeSession(
         challengeStartTimeMs = System.currentTimeMillis() // 3. 시작 시간 기록
 
         // 3) 영상 끝나면 정지 + 점수 계산
-        startChallengeEndTimer()
+        handler.postDelayed({
+            Log.d("ChallengeSession", "handler.postDelayed 실행 → 영상 종료 처리")
+            videoView.pause()
+            videoRecorder.stopRecording()
+            (activity as? MainActivity)?.let { it.runOnUiThread { it.stopTracking() } }
+            Log.d("ChallengeSession", "영상 일시정지 및 녹화 중지 호출")
+
+            val averageScore = averageScoreProvider()
+            Log.d("ChallengeSession", "점수 계산 완료 → averageScore=$averageScore")
+
+            // 저장 여부 팝업 → 선택에 따라 업로드/미업로드 처리 후 결과 이동
+            if (savedVideoUri != null) {
+                showSaveDialog(score = averageScore, videoUri = savedVideoUri)
+            } else {
+                Log.d("ChallengeSession", "Finalize 미도착 → N초 대기 후 팝업")
+                showWaitingDialog()
+                pendingScoreForDialog = averageScore
+                waitFinalizeThenShowDialog(averageScore)
+            }
+        },videoDurationMs.toLong())
     }
 
     private fun runChallengeEndLogic(averageScoreProvider: () -> Float) {
@@ -319,11 +316,17 @@ class ChallengeSession(
 
     private fun moveToResultActivity(averageScore: Float, videoUri: Uri? = null) {
         Log.d("ChallengeSession", "ResultActivity 이동 → averageScore=$averageScore, videoUri=$videoUri")
+        cancelFinalizeTimeout()
         val intent = Intent(activity, ResultActivity::class.java).apply {
             putExtra("averageScore", averageScore)
             videoUri?.let { putExtra("savedVideoUri", it.toString()) }
         }
-        activity.startActivity(intent)
+        activity.runOnUiThread {
+            if (!activity.isFinishing && !activity.isDestroyed) {
+                activity.startActivity(intent)
+                // activity.finish() // 결과 화면만 남기고 싶으면 사용
+            }
+        }
     }
 
     private fun uploadHistory(score: Float, uri: Uri) {
@@ -338,43 +341,82 @@ class ChallengeSession(
 
     // finalize를 기다리는 동안 사용자에게 알려주는 간단한 로딩 다이얼로그
     private fun showWaitingDialog() {
-        if (waitingDialog?.isShowing == true) return
-        waitingDialog = androidx.appcompat.app.AlertDialog.Builder(activity)
-            .setTitle("저장 준비 중")
-            .setMessage("영상 파일을 정리하고 있어요...")
-            .setCancelable(false)
-            .create()
-        waitingDialog?.show()
+        if (!isActivityAlive()) {
+            Log.w("ChallengeSession", "Activity not alive. Skip waiting dialog.")
+            return
+        }
+        activity.runOnUiThread {
+            if (!isActivityAlive()) return@runOnUiThread
+            if (waitingDialog?.isShowing == true) return@runOnUiThread
+
+            try {
+                waitingDialog = AlertDialog.Builder(activity)
+                    .setTitle("저장 준비 중")
+                    .setMessage("영상 파일을 정리하고 있어요...")
+                    .setCancelable(false)
+                    .create()
+                waitingDialog?.show()
+            } catch (e: android.view.WindowManager.BadTokenException) {
+                Log.w("ChallengeSession", "BadToken when showing waiting dialog: ${e.message}")
+                waitingDialog = null
+            }
+        }
     }
 
     private fun dismissWaitingDialog() {
-        runCatching { waitingDialog?.dismiss() }
-        waitingDialog = null
+        activity.runOnUiThread {
+            runCatching { waitingDialog?.dismiss() }
+            waitingDialog = null
+        }
     }
 
     // Finalize를 N초 기다렸다가, 없으면 사용자 선택 유도
     private fun waitFinalizeThenShowDialog(score: Float) {
+        // 중복 예약 방지
+        cancelFinalizeTimeout()
+
         finalizeTimeoutHandler = Handler(Looper.getMainLooper()).also { h ->
             finalizeTimeoutRunnable = Runnable {
-                if (savedVideoUri == null) {
+                if (!isActivityAlive()) {
+                    Log.w("ChallengeSession", "Activity dead at timeout. Skip dialogs.")
+                    return@Runnable
+                }
+
+                // 타임아웃 시점에서의 URI 스냅샷
+                val uriNow = savedVideoUri
+
+                if (uriNow == null) {
+                    // 아직 finalize 안 왔음 → 로딩 닫고 사용자에게 물어보기
                     dismissWaitingDialog()
-                    AlertDialog.Builder(activity)
-                        .setTitle("영상 저장이 지연돼요")
-                        .setMessage("영상 파일 정리에 시간이 오래 걸리고 있어요. 결과 화면으로 먼저 이동할까요?")
-                        .setPositiveButton("결과로 이동") { _, _ ->
-                            pendingSaveRequested = false
-                            pendingScore = null
-                            moveToResultActivity(score, null)
+
+                    activity.runOnUiThread {
+                        if (!isActivityAlive()) return@runOnUiThread
+
+                        try {
+                            androidx.appcompat.app.AlertDialog.Builder(activity)
+                                .setTitle("영상 저장이 지연돼요")
+                                .setMessage("영상 파일 정리에 시간이 오래 걸리고 있어요. 결과 화면으로 먼저 이동할까요?")
+                                .setPositiveButton("결과로 이동") { _, _ ->
+                                    // 저장 보류 상태 초기화 후 결과 화면으로
+                                    pendingSaveRequested = false
+                                    pendingScore = null
+                                    moveToResultActivity(score, null)
+                                }
+                                .setNegativeButton("계속 기다리기") { _, _ ->
+                                    // 다시 대기 다이얼로그 보여주고, 타임아웃 재예약
+                                    showWaitingDialog()
+                                    waitFinalizeThenShowDialog(score)
+                                }
+                                .setCancelable(false)
+                                .show()
+                        } catch (e: android.view.WindowManager.BadTokenException) {
+                            Log.w("ChallengeSession", "BadToken when showing timeout dialog: ${e.message}")
                         }
-                        .setNegativeButton("계속 기다리기") { _, _ ->
-                            showWaitingDialog()
-                            waitFinalizeThenShowDialog(score)
-                        }
-                        .setCancelable(false)
-                        .show()
+                    }
                 } else {
+                    // finalize가 이미 도착했음 → 저장/미저장 선택 다이얼로그로 진행
                     dismissWaitingDialog()
-                    showSaveDialog(score, savedVideoUri)
+                    showSaveDialog(score, uriNow)
                 }
             }.also { r ->
                 h.postDelayed(r, FINALIZE_TIMEOUT_MS)
@@ -446,19 +488,9 @@ class ChallengeSession(
     }
 
     fun release() {
-        // 1. challengeEndRunnable 타이머 정리 (postDelayed로 예약된 종료 로직)
-        challengeEndRunnable?.let {
-            handler.removeCallbacks(it)
-        }
-        challengeEndRunnable = null
-
-        // 2. finalizeTimeoutRunnable 타이머 정리 (finalize 대기 로직)
+        challengeEndRunnable?.let { handler.removeCallbacks(it) }
         cancelFinalizeTimeout()
-
-        // 3. MediaPlayer 객체 정리 (VideoView는 액티비티에서 처리되지만, 만약을 위해 정리)
-        // 실제 MediaPlayer 객체는 VideoView 내부에 있으므로, 핸들러 정리만으로 충분함.
-        // 추가로 정리할 객체가 있다면 여기에 추가.
-
+        dismissWaitingDialog()  // ← 추가
         Log.d("ChallengeSession", "ChallengeSession: All handlers and resources released.")
     }
 }
