@@ -256,10 +256,10 @@ class   MainActivity : AppCompatActivity() {
 
                 // ChallengeSession에도 duration 전달
                 challengeSession.setVideoDuration(videoDurationMs)
-                if (poseTrackingEnabled && !sessionStarted) {
-                    sessionStarted = true
-
-                }
+//                if (poseTrackingEnabled && !sessionStarted) {
+//                    sessionStarted = true
+//
+//                }
             }
 
 

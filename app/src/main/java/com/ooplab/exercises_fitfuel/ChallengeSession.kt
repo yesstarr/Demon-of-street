@@ -162,32 +162,42 @@ class ChallengeSession(
             }
         }
 
+
+
+//        // 2) 영상 재생 시작
+//        Log.d("ChallengeSession", "영상 재생 시작")
+//        videoView.start()
+//        challengeStartTimeMs = System.currentTimeMillis() // 3. 시작 시간 기록
+//
+//        // 3) 영상 끝나면 정지 + 점수 계산
+//        handler.postDelayed({
+//            Log.d("ChallengeSession", "handler.postDelayed 실행 → 영상 종료 처리")
+//            videoView.pause()
+//            videoRecorder.stopRecording()
+//            (activity as? MainActivity)?.let { it.runOnUiThread { it.stopTracking() } }
+//            Log.d("ChallengeSession", "영상 일시정지 및 녹화 중지 호출")
+//
+//            val averageScore = averageScoreProvider()
+//            Log.d("ChallengeSession", "점수 계산 완료 → averageScore=$averageScore")
+//
+//            // 저장 여부 팝업 → 선택에 따라 업로드/미업로드 처리 후 결과 이동
+//            if (savedVideoUri != null) {
+//                showSaveDialog(score = averageScore, videoUri = savedVideoUri)
+//            } else {
+//                Log.d("ChallengeSession", "Finalize 미도착 → N초 대기 후 팝업")
+//                showWaitingDialog()
+//                pendingScoreForDialog = averageScore
+//                waitFinalizeThenShowDialog(averageScore)
+//            }
+//        },videoDurationMs.toLong())
+
         // 2) 영상 재생 시작
         Log.d("ChallengeSession", "영상 재생 시작")
         videoView.start()
         challengeStartTimeMs = System.currentTimeMillis() // 3. 시작 시간 기록
 
         // 3) 영상 끝나면 정지 + 점수 계산
-        handler.postDelayed({
-            Log.d("ChallengeSession", "handler.postDelayed 실행 → 영상 종료 처리")
-            videoView.pause()
-            videoRecorder.stopRecording()
-            (activity as? MainActivity)?.let { it.runOnUiThread { it.stopTracking() } }
-            Log.d("ChallengeSession", "영상 일시정지 및 녹화 중지 호출")
-
-            val averageScore = averageScoreProvider()
-            Log.d("ChallengeSession", "점수 계산 완료 → averageScore=$averageScore")
-
-            // 저장 여부 팝업 → 선택에 따라 업로드/미업로드 처리 후 결과 이동
-            if (savedVideoUri != null) {
-                showSaveDialog(score = averageScore, videoUri = savedVideoUri)
-            } else {
-                Log.d("ChallengeSession", "Finalize 미도착 → N초 대기 후 팝업")
-                showWaitingDialog()
-                pendingScoreForDialog = averageScore
-                waitFinalizeThenShowDialog(averageScore)
-            }
-        },videoDurationMs.toLong())
+        startChallengeEndTimer()
     }
 
     private fun runChallengeEndLogic(averageScoreProvider: () -> Float) {
