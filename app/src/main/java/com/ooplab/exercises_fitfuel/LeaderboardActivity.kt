@@ -68,6 +68,10 @@ class LeaderboardActivity : AppCompatActivity() {
             startActivity(Intent(this, MyPageActivity::class.java))
         }
 
+        findViewById<ImageView>(R.id.homeButton).setOnClickListener {
+            startActivity(Intent(this, MainScreenActivity::class.java))
+        }
+
         rv = findViewById(R.id.rvLeaderboard)
         progress = findViewById(R.id.progress)
 

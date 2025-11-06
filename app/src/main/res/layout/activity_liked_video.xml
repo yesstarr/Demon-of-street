@@ -19,7 +19,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:text="좋아요 누른 영상"
+            android:text="Liked List"
             android:textColor="#FFFFFF"
             android:textSize="17sp"
             android:textStyle="bold" />
