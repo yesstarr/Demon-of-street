@@ -33,9 +33,10 @@
         android:layout_marginTop="8dp"/>
 
     <TextView
+        android:id="@+id/speedSelectionLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="연습 속도 선택 (고정)"
+        android:text="연습 속도 선택"
         android:textSize="16sp"
         android:textStyle="bold"
         android:textColor="#000000"

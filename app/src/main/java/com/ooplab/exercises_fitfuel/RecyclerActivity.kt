@@ -7,6 +7,7 @@ import android.view.View // View import 추가
 import android.widget.Button
 import android.widget.RadioButton
 import android.widget.RadioGroup
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -16,6 +17,7 @@ class RecyclerActivity : AppCompatActivity() {
 
     private val repository = AuthRepository()
     private lateinit var speedRadioGroup: RadioGroup
+    private lateinit var speedSelectionLabel: TextView
 
     // ★ NEW: 모드 상태를 저장할 변수 추가 ★
     private var isPracticeMode: Boolean = true
@@ -31,15 +33,18 @@ class RecyclerActivity : AppCompatActivity() {
         recyclerView.layoutManager = LinearLayoutManager(this)
 
         speedRadioGroup = findViewById(R.id.speedRadioGroup)
+        speedSelectionLabel = findViewById(R.id.speedSelectionLabel) // TextView 초기화
 
         // 2. ★ 핵심 로직: 모드에 따라 배속 UI 가시성 제어 ★
         if (isPracticeMode) {
             // 연습 모드: 배속 선택 UI 보이기
             speedRadioGroup.visibility = View.VISIBLE
+            speedSelectionLabel.visibility = View.VISIBLE // TextView도 보이게
             Log.d("RecyclerDebug", "Practice Mode: Speed UI Visible")
         } else {
             // 챌린지 모드: 배속 선택 UI 숨기기
             speedRadioGroup.visibility = View.GONE
+            speedSelectionLabel.visibility = View.GONE // TextView도 숨기게
             Log.d("RecyclerDebug", "Challenge Mode: Speed UI Gone (Speed fixed at 1.0f)")
         }
 

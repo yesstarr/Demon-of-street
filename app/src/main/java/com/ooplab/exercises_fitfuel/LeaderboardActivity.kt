@@ -62,11 +62,10 @@ class LeaderboardActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_leaderboard)
 
-        findViewById<ImageView>(R.id.homeButton).setOnClickListener {
-            startActivity(Intent(this, MainScreenActivity::class.java))
-        }
-        findViewById<ImageView>(R.id.settingsButton).setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
+        
+        
+        findViewById<ImageView>(R.id.btnMyPage).setOnClickListener {
+            startActivity(Intent(this, MyPageActivity::class.java))
         }
 
         rv = findViewById(R.id.rvLeaderboard)

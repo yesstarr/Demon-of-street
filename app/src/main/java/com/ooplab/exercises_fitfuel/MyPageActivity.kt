@@ -64,16 +64,9 @@ class MyPageActivity : AppCompatActivity() {
 
         findViewById<ImageView>(R.id.backButton)?.setOnClickListener { finish() }
 
-        val menuButton = findViewById<ImageView>(R.id.menuButton)
-        menuButton.setOnClickListener {
-            /* MyPage 현재 화면 */
-        }
+        
 
-        val settingsButton = findViewById<ImageView>(R.id.settingsButton)
-        settingsButton.setOnClickListener {
-            val intent = Intent(this, SettingsActivity::class.java)
-            startActivity(intent)
-        }
+        
 
         val homeButton = findViewById<ImageView>(R.id.homeButton)
         homeButton.setOnClickListener {
@@ -81,6 +74,12 @@ class MyPageActivity : AppCompatActivity() {
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(intent)
             finish()
+        }
+
+        val btnMyPage = findViewById<ImageView>(R.id.btnMyPage)
+        btnMyPage.setOnClickListener {
+            // Already on MyPage, do nothing or show a toast
+            Toast.makeText(this, "이미 마이페이지입니다.", Toast.LENGTH_SHORT).show()
         }
 
         // ★ ADDED: 좋아요한 영상 버튼 → LikedVideosActivity 이동

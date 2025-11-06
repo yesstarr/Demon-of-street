@@ -57,16 +57,17 @@ class MainScreenActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
-        // My Page 버튼: (XML에서 ID를 btnMyPage로 수정했음을 가정하고 로직 재정의)
+                // My Page 버튼: (XML에서 ID를 btnMyPage로 수정했음을 가정하고 로직 재정의)
         // 주의: 현재 XML에서 My Page 버튼의 ID가 btnPracticeMode로 설정되어 있으므로,
         // XML을 수정하지 않았다면 아래 ID는 R.id.btnMyPage로 변경해야 합니다.
         // 여기서는 XML을 이전 단계에서 올바르게 수정했다는 가정 하에 R.id.btnMyPage를 찾습니다.
-
+        findViewById<ImageView>(R.id.btnMyPage).setOnClickListener {
+            val intent = Intent(this, MyPageActivity::class.java)
+            startActivity(intent)
+        }
 
         // ... (나머지 기존 클릭 리스너 로직 유지)
-        findViewById<ImageView>(R.id.menuButton).setOnClickListener {
-            startActivity(Intent(this, MyPageActivity::class.java))
-        }
+        
 
         // Bottom Navigation
         findViewById<ImageView>(R.id.homeButton).setOnClickListener {
@@ -75,9 +76,8 @@ class MainScreenActivity : AppCompatActivity() {
         findViewById<ImageView>(R.id.btnOpenLeaderboard).setOnClickListener {
             startActivity(Intent(this, LeaderboardActivity::class.java))
         }
-        findViewById<ImageView>(R.id.settingsButton).setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
-        }
+        
+        
 
 
         // 1. Bottom Nav Bar의 리더보드 버튼 (ImageView)

@@ -17,6 +17,8 @@ import com.google.firebase.functions.FirebaseFunctionsException
 import com.google.firebase.functions.ktx.functions
 import com.google.firebase.ktx.Firebase
 
+import android.widget.ImageView
+
 private const val TAG = "LikedVideos"
 
 class LikedVideosActivity : AppCompatActivity() {
@@ -24,6 +26,9 @@ class LikedVideosActivity : AppCompatActivity() {
     private lateinit var rv: RecyclerView
     private lateinit var progress: ProgressBar
     private lateinit var btnMore: Button
+    private lateinit var homeButton: ImageView
+    private lateinit var btnOpenLeaderboard: ImageView
+    private lateinit var btnMyPage: ImageView
     private lateinit var adapter: LeaderboardAdapter
     private val items = mutableListOf<PublicVideoItem>()
     private var nextToken: String? = null
@@ -47,6 +52,29 @@ class LikedVideosActivity : AppCompatActivity() {
         rv = findViewById(R.id.rvLiked)
         progress = findViewById(R.id.progressLiked)
         btnMore = findViewById(R.id.btnLoadMore)
+
+        // Initialize and set click listeners for bottom navigation buttons
+        homeButton = findViewById(R.id.homeButton)
+        btnOpenLeaderboard = findViewById(R.id.btnOpenLeaderboard)
+        btnMyPage = findViewById(R.id.btnMyPage)
+
+        homeButton.setOnClickListener { 
+            val intent = Intent(this, MainScreenActivity::class.java)
+            startActivity(intent)
+            finish() // Finish current activity to prevent backstack issues
+        }
+
+        btnOpenLeaderboard.setOnClickListener { 
+            val intent = Intent(this, LeaderboardActivity::class.java)
+            startActivity(intent)
+            finish() // Finish current activity
+        }
+
+        btnMyPage.setOnClickListener { 
+            val intent = Intent(this, MyPageActivity::class.java)
+            startActivity(intent)
+            finish() // Finish current activity
+        }
 
         rv.layoutManager = LinearLayoutManager(this)
         rv.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
