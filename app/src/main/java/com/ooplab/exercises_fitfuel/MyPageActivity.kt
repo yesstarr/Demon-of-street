@@ -26,6 +26,8 @@ class MyPageActivity : AppCompatActivity() {
     private var items: MutableList<Map<String, Any>> = mutableListOf()
     private var adapter: HistoryAdapter? = null
 
+    private lateinit var btnOpenLeaderboard: ImageView
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_mypage)
@@ -80,6 +82,12 @@ class MyPageActivity : AppCompatActivity() {
         btnMyPage.setOnClickListener {
             // Already on MyPage, do nothing or show a toast
             Toast.makeText(this, "이미 마이페이지입니다.", Toast.LENGTH_SHORT).show()
+        }
+
+        btnOpenLeaderboard = findViewById(R.id.btnOpenLeaderboard)
+        btnOpenLeaderboard.setOnClickListener {
+            val intent = Intent(this, LeaderboardActivity::class.java)
+            startActivity(intent)
         }
 
         // ★ ADDED: 좋아요한 영상 버튼 → LikedVideosActivity 이동

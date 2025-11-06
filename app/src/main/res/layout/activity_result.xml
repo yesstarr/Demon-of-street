@@ -142,13 +142,18 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:layout_weight="1"
+            android:padding="12dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_home" />
 
         <ImageView
+            android:id="@+id/btnOpenLeaderboard"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:layout_weight="1"
+            android:padding="12dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_trophy" />
 
         <ImageView
@@ -157,6 +162,8 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:layout_weight="1"
+            android:padding="12dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_book" />
 
         

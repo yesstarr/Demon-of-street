@@ -32,4 +32,11 @@
         android:textSize="14sp"
         android:backgroundTint="#FF7F98"
         android:elevation="2dp" />
+
+    <!-- 하단 테두리선 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#E0E0E0"
+        android:layout_marginTop="8dp" />
 </LinearLayout>
