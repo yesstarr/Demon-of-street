@@ -117,18 +117,13 @@
             android:src="@drawable/ic_trophy_on" />
 
         <ImageView
+            android:id="@+id/btnMyPage"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:layout_weight="1"
             android:src="@drawable/ic_book" />
 
-        <ImageView
-            android:id="@+id/settingsButton"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_weight="1"
-            android:src="@drawable/ic_setting" />
+        
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

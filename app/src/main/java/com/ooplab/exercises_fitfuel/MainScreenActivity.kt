@@ -64,9 +64,7 @@ class MainScreenActivity : AppCompatActivity() {
 
 
         // ... (나머지 기존 클릭 리스너 로직 유지)
-        findViewById<ImageView>(R.id.menuButton).setOnClickListener {
-            startActivity(Intent(this, MyPageActivity::class.java))
-        }
+        
 
         // Bottom Navigation
         findViewById<ImageView>(R.id.homeButton).setOnClickListener {
@@ -75,9 +73,8 @@ class MainScreenActivity : AppCompatActivity() {
         findViewById<ImageView>(R.id.btnOpenLeaderboard).setOnClickListener {
             startActivity(Intent(this, LeaderboardActivity::class.java))
         }
-        findViewById<ImageView>(R.id.settingsButton).setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
-        }
+        
+        
 
 
         // 1. Bottom Nav Bar의 리더보드 버튼 (ImageView)
