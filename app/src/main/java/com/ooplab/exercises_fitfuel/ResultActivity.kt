@@ -61,6 +61,18 @@ class ResultActivity : AppCompatActivity() {
             finish()
         }
 
+        val btnOpenLeaderboard = findViewById<ImageView>(R.id.btnOpenLeaderboard)
+        btnOpenLeaderboard.setOnClickListener {
+            val intent = Intent(this, LeaderboardActivity::class.java)
+            startActivity(intent)
+        }
+
+        val btnMyPage = findViewById<ImageView>(R.id.btnMyPage)
+        btnMyPage.setOnClickListener {
+            val intent = Intent(this, MyPageActivity::class.java)
+            startActivity(intent)
+        }
+
         
     }
 
