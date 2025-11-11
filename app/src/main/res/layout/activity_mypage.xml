@@ -109,14 +109,7 @@
                 android:textSize="14sp"
                 android:layout_marginBottom="2dp" />
 
-            <TextView
-                android:id="@+id/tvGrade"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Bronze"
-                android:textColor="#FF5648"
-                android:textSize="12sp"
-                android:layout_marginBottom="8dp" />
+            
 
             <Button
                 android:id="@+id/logoutButton"
@@ -141,7 +134,7 @@
             android:id="@+id/btnLikedVideos"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="❤️"
+            android:text="💛"
             android:layout_marginTop="8dp"
             android:layout_marginBottom="8dp"/>
 

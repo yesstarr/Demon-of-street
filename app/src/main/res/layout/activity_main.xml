@@ -53,7 +53,7 @@
     android:layout_marginTop="24dp"
     android:background="@drawable/score_box_shape"
     android:elevation="4dp"
-    android:paddingHorizontal="16dp"
+    android:paddingHorizontal="13dp"
     android:paddingVertical="8dp"
     android:text="Score"
     android:textColor="#FF486C"

@@ -37,7 +37,7 @@ class MyPageActivity : AppCompatActivity() {
                 findViewById<TextView>(R.id.tvName).text = "이름: ${userInfo["name"]}"
                 findViewById<TextView>(R.id.tvNickname).text = "닉네임: ${userInfo["nickname"]}"
                 findViewById<TextView>(R.id.tvEmail).text = "이메일: ${userInfo["email"]}"
-                findViewById<TextView>(R.id.tvGrade).text = "등급: ${userInfo["grade"]}"
+                
             } else showToast("사용자 정보가 없습니다.")
         }
 
