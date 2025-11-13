@@ -787,9 +787,20 @@ private fun scoreTimeLockedWindow(
         // 6) (선택) 화면 표시용 스무딩/클램프는 기존 로직 그대로
         val calibrated = PoseScoreConfig.applyTo100(rawScore)
 
+        fun currentRefEnergy(): Float {
+            if (!::refN.isInitialized || refN.isEmpty()) return 0f
+            val fps   = 30f
+            val posMs = try { videoView.currentPosition } catch (_: Throwable) { 0 }
+            val idx   = (((posMs.coerceAtLeast(0) / 1000f) * fps).toInt())
+                .coerceIn(0, refN.lastIndex)
+            val ePose = if (::refEnergyPose.isInitialized) refEnergyPose.getOrElse(idx){ 0f } else 0f
+            val eAng  = if (::refEnergyAngle.isInitialized) refEnergyAngle.getOrElse(idx){ 0f } else 0f
+            return if (ePose > eAng) ePose else eAng   // maxOf(ePose, eAng)와 동일
+        }
         val now = SystemClock.uptimeMillis()
         val (motionNow, stillLocked) = updateMotionAndStill(now)
-        val refE = 0f // 필요시 currentRefEnergy() 써도 됨
+        val refE = currentRefEnergy() // 필요시 currentRefEnergy() 써도 됨
+
         return smoothAndClampScore(rawScore, motionNow, now, stillLocked, refE)
     }
     // === 유사도/앵커/속도 유틸 (from newmainactivity) ===

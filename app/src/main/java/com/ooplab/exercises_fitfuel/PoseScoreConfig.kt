@@ -27,7 +27,7 @@ object PoseScoreConfig {
     )
 
     /** 선형 스케일 (전 구간 동일 비율). 필요 없으면 1.0f */
-    var SCORE_SCALE: Float = 1.0f
+    var SCORE_SCALE: Float = 1.3f
 
     /** 비선형 감마 보정: 1보다 크면 전체적으로 내려가되 100은 유지됨 */
     var GAMMA: Double = 3.10
